@@ -1,0 +1,16 @@
+project_id    = "plomer-platform"
+region        = "us-west1"
+custom_domain = "oauth.plomer.info"
+
+# The AS must be public — leave true.
+allow_unauthenticated = true
+
+# Non-secret provider client ids (the matching secrets are uploaded to Secret Manager, not set here):
+google_oidc_client_id = "" # <google-oauth-client-id>.apps.googleusercontent.com
+oura_client_id        = ""
+
+# CI: create the Cloud Build v2 GitHub connection by hand in the console, then paste its id here.
+# Leave empty to skip the trigger and build/push the first image manually.
+# github_connection_id = "projects/plomer-platform/locations/us-west1/connections/github"
+github_owner      = "michaelplomer"
+github_repository = "mcp-oauth"

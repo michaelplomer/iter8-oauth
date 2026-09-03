@@ -1,0 +1,55 @@
+# Production profile (SPRING_PROFILES_ACTIVE=prod), used by the Cloud Run deployment.
+#
+# The non-secret wiring lives here in the image; secrets and the issuer come from the environment,
+# which Cloud Run fills from Secret Manager and plain config (see terraform/cloud_run.tf). Every
+# ${VAR} below is supplied there — nothing secret is committed.
+
+iter8:
+  oauth:
+    issuer: ${ITER8_OAUTH_ISSUER}
+
+    keys:
+      # Persistent across revisions — generated once and stored in Secret Manager (dev generates
+      # ephemeral halves; prod must not, or every restart invalidates outstanding tokens).
+      jws-public-key: ${ITER8_OAUTH_JWS_PUBLIC_KEY}
+      jws-private-key: ${ITER8_OAUTH_JWS_PRIVATE_KEY}
+      refresh-token-key: ${ITER8_OAUTH_REFRESH_TOKEN_KEY}
+      # No SEALED_CREDENTIAL key here: the AS discovers each brokered resource's encryption key from its
+      # RFC 9728 metadata (jwks_uri).
+
+    providers:
+      # SIGNED_IDENTITY: Google OIDC, gated on Workspace domain + an explicit external allowlist.
+      google-oidc:
+        type: oidc-identity
+        client-id: ${GOOGLE_OIDC_CLIENT_ID}
+        client-secret: ${GOOGLE_OIDC_CLIENT_SECRET}
+        authorization-uri: https://accounts.google.com/o/oauth2/v2/auth
+        token-uri: https://oauth2.googleapis.com/token
+        jwks-uri: https://www.googleapis.com/oauth2/v3/certs
+        accepted-issuers: [https://accounts.google.com, accounts.google.com]
+        requested-scope: openid email
+        allowed-hosted-domains: [plomer.info]
+        # Individual external accounts admitted in addition to the whole plomer.info domain.
+        allowed-emails: []
+        scopes-supported: [whatable.read, whatable.write]
+
+      # SEALED_CREDENTIAL: Oura brokered, upstream secret hidden inside a JWE (no JWKS published).
+      oura:
+        type: oauth2-broker
+        client-id: ${OURA_CLIENT_ID}
+        client-secret: ${OURA_CLIENT_SECRET}
+        authorization-uri: https://cloud.ouraring.com/oauth/authorize
+        token-uri: https://api.ouraring.com/oauth/token
+        scopes: [personal, daily, heartrate, workout, session, spo2]
+        scopes-supported: [oura.read]
+
+    # Which provider authorizes each protected resource (canonical resource identifier -> provider id).
+    resources:
+      https://whatable.mcp.plomer.info/mcp: google-oidc
+      https://oura.mcp.plomer.info/mcp: oura
+
+    default-provider: google-oidc
+
+logging:
+  level:
+    info.plomer.iter8.oauth: INFO

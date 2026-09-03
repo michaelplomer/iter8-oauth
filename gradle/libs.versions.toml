@@ -1,0 +1,16 @@
+[versions]
+# Aligned with whatable/oura: Spring Boot 4 line, Java 25, Gradle 9.x.
+springBoot = "4.1.1"
+springDependencyMgmt = "1.1.7"
+# Not managed by the Boot 4.1 BOM (comes transitively via Spring Security); pinned explicitly.
+nimbus = "10.9.1"
+
+[libraries]
+# Gradle plugin artifacts consumed by buildSrc convention plugins.
+spring-boot-gradlePlugin = { module = "org.springframework.boot:spring-boot-gradle-plugin", version.ref = "springBoot" }
+spring-dependencyManagement-gradlePlugin = { module = "io.spring.gradle:dependency-management-plugin", version.ref = "springDependencyMgmt" }
+
+# Runtime libraries (versions supplied by the Spring Boot BOM).
+spring-boot-starter-webflux = { module = "org.springframework.boot:spring-boot-starter-webflux" }
+spring-boot-starter-oauth2-resource-server = { module = "org.springframework.boot:spring-boot-starter-oauth2-resource-server" }
+nimbus-jose-jwt = { module = "com.nimbusds:nimbus-jose-jwt", version.ref = "nimbus" }

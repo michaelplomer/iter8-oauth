@@ -1,0 +1,47 @@
+# Build, containerise and deploy the mcp-oauth authorization server to Cloud Run.
+#
+# Wired to a Cloud Build trigger on pushes to main (see terraform/cloud_build.tf), following the same
+# shape as oura-mcp and whatable. The deploy step passes only the image: everything else about the
+# service — env, secrets, scaling, the issuer — stays as configured on the service itself, so none of
+# it has to be kept in step with this file.
+#
+# Pushes to the central platform registry (plomer-platform/images), shared across services.
+
+substitutions:
+  _REGION: us-west1
+  _REPO: images
+  _SERVICE: as-app
+
+steps:
+  - id: build
+    name: gcr.io/cloud-builders/docker
+    args:
+      - build
+      - -t
+      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_SERVICE}:$SHORT_SHA
+      - .
+
+  - id: push
+    name: gcr.io/cloud-builders/docker
+    args:
+      - push
+      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_SERVICE}:$SHORT_SHA
+
+  - id: deploy
+    name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
+    entrypoint: gcloud
+    args:
+      - run
+      - deploy
+      - ${_SERVICE}
+      - --region=${_REGION}
+      - --image=${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_SERVICE}:$SHORT_SHA
+
+images:
+  - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_SERVICE}:$SHORT_SHA
+
+options:
+  logging: CLOUD_LOGGING_ONLY
+  machineType: E2_HIGHCPU_8
+
+timeout: 1200s

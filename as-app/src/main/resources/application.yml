@@ -1,0 +1,43 @@
+spring:
+  application:
+    name: mcp-oauth
+
+server:
+  # Cloud Run injects PORT; default 8080 locally.
+  port: ${PORT:8080}
+  forward-headers-strategy: framework   # honour the proxy's proto/host when building absolute URLs
+
+iter8:
+  oauth:
+    # Stamped into every token and checked on every one; set to this server's public URL in deployment.
+    issuer: ${ITER8_OAUTH_ISSUER:}
+    keys:
+      # base64 (X.509 public / PKCS#8 private) or PEM. Absent halves are generated per run (dev only).
+      jws-public-key: ${ITER8_OAUTH_JWS_PUBLIC_KEY:}
+      jws-private-key: ${ITER8_OAUTH_JWS_PRIVATE_KEY:}
+      refresh-token-key: ${ITER8_OAUTH_REFRESH_TOKEN_KEY:}
+      # SEALED_CREDENTIAL keys are not configured here: each resource server publishes its own encryption key,
+      # which the AS discovers from that resource's RFC 9728 metadata.
+    # Providers and their resource mapping are configured per deployment, e.g.:
+    #   providers:
+    #     google-oidc:
+    #       type: oidc-identity
+    #       client-id: ...           # from Google Cloud console
+    #       client-secret: ...
+    #       authorization-uri: https://accounts.google.com/o/oauth2/v2/auth
+    #       token-uri: https://oauth2.googleapis.com/token
+    #       jwks-uri: https://www.googleapis.com/oauth2/v3/certs
+    #       accepted-issuers: [https://accounts.google.com, accounts.google.com]
+    #       requested-scope: openid email
+    #       allowed-hosted-domains: [plomer.info]
+    #       allowed-emails: []
+    #       scopes-supported: [whatable.read, whatable.write]
+    #   resources:
+    #     https://whatable.mcp.plomer.info/mcp: google-oidc
+    #   default-provider: google-oidc
+    providers: {}
+    resources: {}
+
+logging:
+  level:
+    info.plomer.iter8.oauth: INFO
