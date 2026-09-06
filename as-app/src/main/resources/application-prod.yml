@@ -44,9 +44,12 @@ iter8:
         scopes-supported: [oura.read]
 
     # Which provider authorizes each protected resource (canonical resource identifier -> provider id).
+    # The keys are URLs (they contain dots), so they must be wrapped in [ ] and quoted — otherwise Spring's
+    # relaxed binding treats the dots as nested keys and the map binds empty, which silently routes every
+    # request to default-provider.
     resources:
-      https://whatable.mcp.plomer.info/mcp: google-oidc
-      https://oura.mcp.plomer.info/mcp: oura
+      "[https://whatable.mcp.plomer.info/mcp]": google-oidc
+      "[https://oura.mcp.plomer.info/mcp]": oura
 
     default-provider: google-oidc
 
