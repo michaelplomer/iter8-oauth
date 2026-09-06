@@ -1,6 +1,7 @@
 plugins {
     id("mcpoauth.java-library-conventions")
     `maven-publish`
+    id("com.google.cloud.artifactregistry.gradle-plugin")
 }
 
 publishing {
@@ -11,6 +12,12 @@ publishing {
                 usage("java-api") { fromResolutionResult() }
                 usage("java-runtime") { fromResolutionResult() }
             }
+        }
+    }
+    repositories {
+        maven {
+            name = "artifactRegistry"
+            url = uri("artifactregistry://us-west1-maven.pkg.dev/plomer-platform/maven")
         }
     }
 }

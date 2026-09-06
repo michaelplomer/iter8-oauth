@@ -5,6 +5,11 @@ pluginManagement {
         gradlePluginPortal()
         mavenCentral()
     }
+    // The Artifact Registry transport for `artifactregistry://` publish URLs. Version pinned here so the
+    // library modules can apply it without repeating the version. Resolved from the Gradle Plugin Portal.
+    plugins {
+        id("com.google.cloud.artifactregistry.gradle-plugin") version "2.2.5"
+    }
 }
 
 dependencyResolutionManagement {

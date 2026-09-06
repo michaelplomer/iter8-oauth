@@ -25,6 +25,15 @@ variable "repository_id" {
   default     = "images"
 }
 
+variable "maven_repository_id" {
+  description = <<-EOT
+    The org-managed central Maven repository in the platform project that the shared libraries publish to.
+    This deploy references it (grants the build SA writer); it does not create it.
+  EOT
+  type        = string
+  default     = "maven"
+}
+
 variable "placeholder_image" {
   description = <<-EOT
     Image used only to create the service before any build has produced a real one. Cloud Build

@@ -1,6 +1,7 @@
 plugins {
     id("mcpoauth.java-library-conventions")
     `maven-publish`
+    id("com.google.cloud.artifactregistry.gradle-plugin")
 }
 
 publishing {
@@ -11,6 +12,15 @@ publishing {
                 usage("java-api") { fromResolutionResult() }
                 usage("java-runtime") { fromResolutionResult() }
             }
+        }
+    }
+    repositories {
+        // The central shared Maven repo in the platform project (created by plomer.info-gcp-org). Publishing
+        // needs a writer on it (the CI build SA / a developer's ADC); `publishToMavenLocal` still works for
+        // local dev. See gradle/README or the org repo for the reader/writer wiring.
+        maven {
+            name = "artifactRegistry"
+            url = uri("artifactregistry://us-west1-maven.pkg.dev/plomer-platform/maven")
         }
     }
 }

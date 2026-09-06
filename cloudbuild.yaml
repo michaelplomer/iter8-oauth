@@ -13,6 +13,19 @@ substitutions:
   _SERVICE: as-app
 
 steps:
+  # Publish the shared libraries (cimd, oauth-core, resource-server) to the central platform Maven repo so
+  # the MCP servers (oura-mcp, whatable) can resolve de.iter8:* in their own CI. The Artifact Registry
+  # Gradle plugin authenticates with the build's service account via ADC (no key). Needs writer on
+  # plomer-platform/maven — granted to as-app-build in terraform.
+  - id: publish-libs
+    name: eclipse-temurin:25-jdk
+    entrypoint: ./gradlew
+    args:
+      - --no-daemon
+      - :cimd:publish
+      - :oauth-core:publish
+      - :resource-server:publish
+
   - id: build
     name: gcr.io/cloud-builders/docker
     args:

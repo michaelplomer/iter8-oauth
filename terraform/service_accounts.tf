@@ -13,11 +13,21 @@ resource "google_service_account" "build" {
   description  = "Identity Cloud Build runs as. Pushes images to the central registry and deploys revisions."
 }
 
-# Push to the org-managed central registry (created by the org repo; referenced, not owned, here).
+# Push container images to the org-managed central registry (created by the org repo; referenced here).
 resource "google_artifact_registry_repository_iam_member" "build_may_push" {
   project    = var.project_id
   location   = var.region
   repository = var.repository_id
+  role       = "roles/artifactregistry.writer"
+  member     = "serviceAccount:${google_service_account.build.email}"
+}
+
+# Publish the shared libraries (cimd, oauth-core, resource-server) to the org-managed central Maven repo, so
+# the MCP servers can resolve de.iter8:* in their own CI (see cloudbuild.yaml's publish-libs step).
+resource "google_artifact_registry_repository_iam_member" "build_may_publish_libs" {
+  project    = var.project_id
+  location   = var.region
+  repository = var.maven_repository_id
   role       = "roles/artifactregistry.writer"
   member     = "serviceAccount:${google_service_account.build.email}"
 }

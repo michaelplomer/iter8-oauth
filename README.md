@@ -84,3 +84,13 @@ and a full context boot serving metadata/JWKS/authorize (`as-app`).
 Slice 1 (this repo) is complete and builds green. Next: adopt `resource-server` in whatable (identity/JWS,
 using the Google email as the user id) and in oura-mcp (broker/JWE); then promote `as-app` to a deployed
 service with its Terraform.
+
+# Token generation
+Refresh sealing token
+```shell
+openssl rand -base64 32 | tr -d '\n' | gcloud secrets versions add iter8-oauth-refresh-token-key --project=plomer-platform --data-file=-
+```
+
+```shell
+set -e; openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out jws.pem && openssl pkey -in jws.pem -outform DER | base64 | gcloud secrets versions add iter8-oauth-jws-private-key --project=plomer-platform --data-file=- && openssl pkey -in jws.pem -pubout -outform DER | base64 | gcloud secrets versions add iter8-oauth-jws-public-key --project=plomer-platform --data-file=- && rm jws.pem
+```
