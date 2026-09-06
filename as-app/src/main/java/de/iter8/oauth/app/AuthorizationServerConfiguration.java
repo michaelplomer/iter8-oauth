@@ -3,8 +3,10 @@ package de.iter8.oauth.app;
 import java.time.Clock;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.boot.ApplicationRunner;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -102,7 +104,7 @@ class AuthorizationServerConfiguration {
 
     @Bean
     TokenCodecs tokenCodecs(AuthorizationServerProperties props, ProviderRegistry registry,
-            WebClient.Builder webClientBuilder) {
+            ResourceEncryptionKeyResolver sealingKeyResolver) {
         String issuer = issuer(props);
 
         JwsTokenCodec jws = null;
@@ -120,7 +122,7 @@ class AuthorizationServerConfiguration {
         boolean needJwe = registry.all().stream()
                 .anyMatch(provider -> provider.tokenModel() == TokenModel.SEALED_CREDENTIAL);
         if (needJwe) {
-            jwe = new JweTokenCodec(sealingKeyResolver(props, issuer, webClientBuilder), null, issuer);
+            jwe = new JweTokenCodec(sealingKeyResolver, null, issuer);
         }
 
         return new TokenCodecs(jwe, jws);
@@ -129,17 +131,44 @@ class AuthorizationServerConfiguration {
     /**
      * The AS side of the SEALED_CREDENTIAL key model: each brokered resource is sealed to its own key,
      * discovered from that resource's RFC 9728 metadata and cached. There is no static key — a resource that
-     * publishes none cannot be sealed to, and issuance fails closed for it.
+     * publishes none cannot be sealed to, and issuance fails closed for it. Exposed as a bean so it can be
+     * pre-warmed at startup (see {@link #warmResourceEncryptionKeys}).
      */
-    private ResourceEncryptionKeyResolver sealingKeyResolver(AuthorizationServerProperties props,
-            String issuer, WebClient.Builder webClientBuilder) {
+    @Bean
+    ResourceEncryptionKeyResolver sealingKeyResolver(AuthorizationServerProperties props,
+            WebClient.Builder webClientBuilder) {
         if (props.resources().isEmpty()) {
-            log.warn("A brokering provider is configured but no resources are mapped, so there is no resource "
-                    + "whose published key a credential could be sealed to. Map the brokered resources under "
-                    + "iter8.oauth.resources.");
+            log.warn("No resources are mapped under iter8.oauth.resources, so no brokered credential can be "
+                    + "sealed to a resource's published key.");
         }
         return DiscoveringResourceEncryptionKeyResolver.over(webClientBuilder.build(),
-                props.resources().keySet(), issuer, props.resourceKeyCacheTtl(), Clock.systemUTC());
+                props.resources().keySet(), issuer(props), props.resourceKeyCacheTtl(), Clock.systemUTC());
+    }
+
+    /**
+     * Pre-warms the discovery cache at startup for the brokered (SEALED_CREDENTIAL) resources, so a cold
+     * instance's first seal finds the key already cached instead of the empty result the non-blocking
+     * resolver returns mid-request (issuance is synchronous and runs on a reactor thread, so it cannot wait
+     * on the fetch itself). Identity resources publish no encryption key, so they are skipped.
+     */
+    @Bean
+    ApplicationRunner warmResourceEncryptionKeys(AuthorizationServerProperties props,
+            ProviderRegistry registry, ResourceEncryptionKeyResolver sealingKeyResolver) {
+        return args -> {
+            if (!(sealingKeyResolver instanceof DiscoveringResourceEncryptionKeyResolver discovering)) {
+                return;
+            }
+            List<String> brokered = props.resources().entrySet().stream()
+                    .filter(entry -> {
+                        UpstreamProvider provider = registry.byId(entry.getValue());
+                        return provider != null && provider.tokenModel() == TokenModel.SEALED_CREDENTIAL;
+                    })
+                    .map(Map.Entry::getKey)
+                    .toList();
+            if (!brokered.isEmpty()) {
+                discovering.warm(brokered);
+            }
+        };
     }
 
     private UpstreamProvider build(String id, ProviderConfig config, WebClient.Builder webClientBuilder) {

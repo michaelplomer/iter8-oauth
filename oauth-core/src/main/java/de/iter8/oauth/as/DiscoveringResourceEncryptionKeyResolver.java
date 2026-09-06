@@ -3,6 +3,7 @@ package de.iter8.oauth.as;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Collection;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -60,6 +61,34 @@ public final class DiscoveringResourceEncryptionKeyResolver implements ResourceE
             String authorizationServerIssuer, Duration cacheTtl, Clock clock) {
         return new DiscoveringResourceEncryptionKeyResolver(knownResources, cacheTtl, clock,
                 new PrmKeyFetcher(http, authorizationServerIssuer)::fetch);
+    }
+
+    /**
+     * Eagerly fetches and caches the keys for the given resources, blocking briefly on each. Meant to be
+     * called once at startup (off the event loop — e.g. from an {@code ApplicationRunner}) so the first token
+     * a cold instance seals finds a warm cache rather than the empty result the non-blocking path returns.
+     * Failures are logged, not thrown: a resource that is momentarily unreachable at boot is retried lazily
+     * on first use.
+     *
+     * @param resources the resources to pre-fetch (typically the brokered ones); unknown ones are skipped
+     */
+    public void warm(Collection<String> resources) {
+        for (String resource : resources) {
+            if (!this.knownResources.contains(resource)) {
+                continue;
+            }
+            try {
+                JWK jwk = this.fetcher.apply(resource).block(Duration.ofSeconds(10));
+                if (jwk != null) {
+                    this.cache.put(resource, new Cached(jwk, this.clock.instant().plus(this.cacheTtl)));
+                    log.info("Warmed the encryption key for resource {}.", resource);
+                }
+            }
+            catch (RuntimeException failure) {
+                log.warn("Could not warm the encryption key for resource {}: {}. It will be retried on first "
+                        + "use.", resource, failure.getMessage());
+            }
+        }
     }
 
     @Override
