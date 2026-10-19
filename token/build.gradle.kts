@@ -1,19 +1,8 @@
 plugins {
-    id("buildlogic.java-library-conventions")
-    `maven-publish`
+    id("buildlogic.published-library-conventions")
 }
 
-publishing {
-    publications {
-        create<MavenPublication>("maven") {
-            from(components["java"])
-            versionMapping {
-                usage("java-api") { fromResolutionResult() }
-                usage("java-runtime") { fromResolutionResult() }
-            }
-        }
-    }
-}
+description = "Token formats, codecs and keys shared by the iter8-oauth authorization and resource servers."
 
 // The token formats the authorization server issues and resource servers validate: the JWS and JWE codecs,
 // the token model and claims, and the keys that sign and seal tokens. It has no Spring dependency, so

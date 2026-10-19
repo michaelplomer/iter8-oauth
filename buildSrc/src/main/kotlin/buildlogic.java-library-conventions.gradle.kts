@@ -11,8 +11,8 @@ plugins {
     id("io.spring.dependency-management")
 }
 
+// The version lives in gradle.properties, so a release build can override it with -Pversion.
 group = "de.iter8"
-version = "0.1.0-SNAPSHOT"
 
 // Library default: a plain jar, not a runnable bootJar. Clear the "plain" classifier the Spring Boot
 // plugin adds, so the library publishes as the main artifact (no classifier) that consumers resolve.

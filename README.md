@@ -3,6 +3,8 @@
 A standalone MCP **authorization server** with pluggable upstream providers, plus the libraries an MCP
 resource server uses to validate its tokens. Extracted and generalized from oura-mcp's embedded AS.
 
+Not affiliated with the [Iter8](https://iter8.tools) project, the Kubernetes release optimizer.
+
 Gradle 9.6 · Java 25 · Spring Boot 4.1 · Spring WebFlux.
 
 ## Why it exists
@@ -24,6 +26,16 @@ its own registered app, and issues its own audience-bound tokens.
 | `as-app` | **bootJar** | The deployable authorization server, wired from declarative config. |
 
 `cimd`, `token`, `oauth-core`, and `resource-server` publish as artifacts (`de.iter8:*`); `as-app` deploys.
+
+Releases are on Maven Central. An MCP server that validates tokens only needs `resource-server`:
+
+```kotlin
+implementation("de.iter8:resource-server:0.1.0")
+```
+
+Every push to `main` also publishes a snapshot of the next version, for example `0.1.0-SNAPSHOT`, to
+`https://central.sonatype.com/repository/maven-snapshots/`. Snapshots are only for trying unreleased changes:
+add that repository to your build to use them, and expect them to disappear after a while.
 
 ## The two token models
 
@@ -80,6 +92,8 @@ startup instead of silently accepting every request.
 
 ## Security model and limits
 
+To report a vulnerability, see [SECURITY.md](SECURITY.md).
+
 **Consent.** Before sending a user to the upstream provider, the server shows a consent page naming the client
 by its client ID URL, where the authorization result will be sent, and what is requested. Without it, any
 client that publishes a metadata document could obtain a code for a user who had approved this server's app
@@ -116,6 +130,14 @@ codec selection, resource encryption keys, the allowlist gate including on refre
 detection, and the store limits (`oauth-core`); when the resource server starts and what it protects
 (`resource-server`); and in `as-app`, resource map binding, the brokered authorization flow, the consent page,
 and a full context boot serving metadata, JWKS and authorize.
+
+## Releasing
+
+1. Tag the commit with the version, such as `v0.1.0`, and push the tag. The release workflow builds, tests,
+   signs and uploads the libraries to the Central Portal.
+2. Check the upload in the Central Portal and publish it there. A release on Maven Central can never be changed
+   or removed, so this step stays manual.
+3. Set `version` in `gradle.properties` to the next snapshot, such as `0.2.0-SNAPSHOT`.
 
 ## Generating keys
 

@@ -1,19 +1,8 @@
 plugins {
-    id("buildlogic.java-library-conventions")
-    `maven-publish`
+    id("buildlogic.published-library-conventions")
 }
 
-publishing {
-    publications {
-        create<MavenPublication>("maven") {
-            from(components["java"])
-            versionMapping {
-                usage("java-api") { fromResolutionResult() }
-                usage("java-runtime") { fromResolutionResult() }
-            }
-        }
-    }
-}
+description = "The iter8-oauth authorization server engine, with pluggable upstream providers."
 
 // The authorization server engine: PKCE, the code and pending-authorization stores, the endpoints, and the
 // UpstreamProvider SPI with its brokered and OIDC providers. Token formats and codecs live in the token

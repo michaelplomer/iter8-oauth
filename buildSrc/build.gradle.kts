@@ -10,4 +10,5 @@ repositories {
 dependencies {
     implementation(libs.spring.boot.gradlePlugin)
     implementation(libs.spring.dependencyManagement.gradlePlugin)
+    implementation(libs.vanniktech.publish.gradlePlugin)
 }

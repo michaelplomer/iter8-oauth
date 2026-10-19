@@ -1,19 +1,8 @@
 plugins {
-    id("buildlogic.java-library-conventions")
-    `maven-publish`
+    id("buildlogic.published-library-conventions")
 }
 
-publishing {
-    publications {
-        create<MavenPublication>("maven") {
-            from(components["java"])
-            versionMapping {
-                usage("java-api") { fromResolutionResult() }
-                usage("java-runtime") { fromResolutionResult() }
-            }
-        }
-    }
-}
+description = "Client ID Metadata Documents for OAuth: fetching, validating and verifying client assertions."
 
 // Client ID Metadata Documents: fetching + validating a client's self-description, and verifying
 // private_key_jwt assertions. Provider-neutral — consumed by the AS engine.
