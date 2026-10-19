@@ -1,4 +1,4 @@
-package de.iter8.oauth.as;
+package de.iter8.oauth.token;
 
 /**
  * Raised when a presented token is not one this server will honour.

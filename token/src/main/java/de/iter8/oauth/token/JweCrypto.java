@@ -1,4 +1,4 @@
-package de.iter8.oauth.as;
+package de.iter8.oauth.token;
 
 import com.nimbusds.jose.EncryptionMethod;
 import com.nimbusds.jose.JOSEException;

@@ -12,6 +12,13 @@ import org.junit.jupiter.api.Test;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import de.iter8.oauth.token.InvalidTokenException;
+import de.iter8.oauth.token.IssuedToken;
+import de.iter8.oauth.token.JweTokenCodec;
+import de.iter8.oauth.token.JwsTokenCodec;
+import de.iter8.oauth.token.RefreshTokenCodec;
+import de.iter8.oauth.token.TokenModel;
+
 /**
  * The token layer: a JWE token seals an upstream credential the client cannot read; a JWS token carries
  * readable identity and nothing secret; and codec selection is fail-closed.

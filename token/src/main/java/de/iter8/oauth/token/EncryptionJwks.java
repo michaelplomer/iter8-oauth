@@ -1,4 +1,4 @@
-package de.iter8.oauth.as;
+package de.iter8.oauth.token;
 
 import java.security.KeyFactory;
 import java.security.interfaces.RSAPrivateCrtKey;

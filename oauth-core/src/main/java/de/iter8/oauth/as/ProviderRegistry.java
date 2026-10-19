@@ -7,6 +7,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import de.iter8.oauth.token.ResourceIdentifiers;
+import de.iter8.oauth.token.TokenModel;
+
 /**
  * The upstream providers this server brokers for, and the mapping from a requested resource to the provider
  * that authorizes it.

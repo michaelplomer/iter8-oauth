@@ -26,10 +26,10 @@ import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
 
 import de.iter8.oauth.as.PendingAuthorization;
-import de.iter8.oauth.as.TokenModel;
 import de.iter8.oauth.as.UpstreamAuthorizationException;
 import de.iter8.oauth.as.UpstreamProvider;
 import de.iter8.oauth.as.UpstreamResult;
+import de.iter8.oauth.token.TokenModel;
 
 /**
  * An OIDC identity provider — Google, and anything else that speaks OpenID Connect. It authenticates the

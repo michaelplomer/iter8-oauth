@@ -14,6 +14,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
 
+import de.iter8.oauth.token.ResourceEncryptionKeyResolver;
+
 /**
  * Discovers each resource's encryption key from its RFC 9728 metadata and caches it. Encryption stays
  * synchronous and non-blocking: a lookup reads the cache and, when a resource is unknown or its entry has

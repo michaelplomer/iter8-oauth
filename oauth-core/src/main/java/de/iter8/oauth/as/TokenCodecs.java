@@ -1,5 +1,9 @@
 package de.iter8.oauth.as;
 
+import de.iter8.oauth.token.IssuedTokenCodec;
+import de.iter8.oauth.token.JwsTokenCodec;
+import de.iter8.oauth.token.TokenModel;
+
 /**
  * The access-token codecs available, selected by a provider's {@link TokenModel}. The refresh codec is
  * shared (always symmetric JWE) and held separately.

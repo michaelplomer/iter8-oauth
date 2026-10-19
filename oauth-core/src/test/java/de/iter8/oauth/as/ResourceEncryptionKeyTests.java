@@ -18,6 +18,14 @@ import reactor.core.publisher.Mono;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import de.iter8.oauth.token.EncryptionJwks;
+import de.iter8.oauth.token.InvalidTokenException;
+import de.iter8.oauth.token.IssuedToken;
+import de.iter8.oauth.token.JweTokenCodec;
+import de.iter8.oauth.token.KeyedSealingKeyStore;
+import de.iter8.oauth.token.ResourceEncryptionKeyResolver;
+import de.iter8.oauth.token.StaticResourceEncryptionKeyResolver;
+
 /**
  * The per-resource SEALED_CREDENTIAL key model: a token is sealed to a key a resource server publishes and
  * opened by that server via the {@code kid}; a token sealed to a key the server does not hold is refused; and

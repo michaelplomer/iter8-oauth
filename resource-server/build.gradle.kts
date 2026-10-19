@@ -26,7 +26,7 @@ publishing {
 // challenge, and a security chain that validates AS-issued tokens (JWS via JWKS, or JWE via the
 // self-issued introspector).
 dependencies {
-    api(project(":oauth-core"))                                  // JweTokenCodec, TokenKeys, IssuedToken
+    api(project(":token"))                                       // JweTokenCodec, TokenKeys, IssuedToken
     implementation(libs.spring.boot.starter.webflux)
     implementation(libs.spring.boot.starter.oauth2.resource.server)
 }

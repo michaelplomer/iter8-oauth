@@ -14,9 +14,9 @@ import org.springframework.web.util.UriComponentsBuilder;
 import reactor.core.publisher.Mono;
 
 import de.iter8.oauth.as.PendingAuthorization;
-import de.iter8.oauth.as.TokenModel;
 import de.iter8.oauth.as.UpstreamProvider;
 import de.iter8.oauth.as.UpstreamResult;
+import de.iter8.oauth.token.TokenModel;
 
 /**
  * A brokering provider for an OAuth 2 authorization-code upstream that yields an API credential — Oura, and

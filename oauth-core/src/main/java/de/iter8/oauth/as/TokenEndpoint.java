@@ -22,6 +22,11 @@ import de.iter8.oauth.cimd.ClientAssertionException;
 import de.iter8.oauth.cimd.ClientAssertionVerifier;
 import de.iter8.oauth.cimd.ClientIdMetadata;
 import de.iter8.oauth.cimd.ClientIdMetadataResolver;
+import de.iter8.oauth.token.InvalidTokenException;
+import de.iter8.oauth.token.IssuedToken;
+import de.iter8.oauth.token.IssuedTokenCodec;
+import de.iter8.oauth.token.RefreshTokenCodec;
+import de.iter8.oauth.token.TokenModel;
 
 /**
  * The token endpoint, where an authorization code becomes an access token and a refresh token becomes a

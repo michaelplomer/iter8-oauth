@@ -30,6 +30,7 @@ publishing {
 // providers and the deployable app live elsewhere.
 dependencies {
     api(project(":cimd"))                            // client onboarding types leak into the SPI/endpoints
+    api(project(":token"))                           // token model and codecs appear in the SPI
     implementation(libs.spring.boot.starter.webflux) // ServerWebExchange, WebClient, Reactor
     implementation(libs.nimbus.jose.jwt)             // JWE/JWS/JWK
 }

@@ -17,21 +17,21 @@ import de.iter8.oauth.as.AsSettings;
 import de.iter8.oauth.as.AuthorizationCodeStore;
 import de.iter8.oauth.as.AuthorizationServerUris;
 import de.iter8.oauth.as.DiscoveringResourceEncryptionKeyResolver;
-import de.iter8.oauth.as.IssuedTokenCodec;
-import de.iter8.oauth.as.JweTokenCodec;
-import de.iter8.oauth.as.ResourceEncryptionKeyResolver;
-import de.iter8.oauth.as.JwsTokenCodec;
 import de.iter8.oauth.as.PendingAuthorizationStore;
 import de.iter8.oauth.as.ProviderRegistry;
-import de.iter8.oauth.as.RefreshTokenCodec;
 import de.iter8.oauth.as.TokenCodecs;
-import de.iter8.oauth.as.TokenKeys;
-import de.iter8.oauth.as.TokenModel;
 import de.iter8.oauth.as.UpstreamProvider;
-import de.iter8.oauth.as.provider.OidcIdentityProvider;
 import de.iter8.oauth.as.provider.BrokeredTokenProvider;
+import de.iter8.oauth.as.provider.OidcIdentityProvider;
 import de.iter8.oauth.cimd.ClientAssertionVerifier;
 import de.iter8.oauth.cimd.ClientIdMetadataResolver;
+import de.iter8.oauth.token.IssuedTokenCodec;
+import de.iter8.oauth.token.JweTokenCodec;
+import de.iter8.oauth.token.JwsTokenCodec;
+import de.iter8.oauth.token.RefreshTokenCodec;
+import de.iter8.oauth.token.ResourceEncryptionKeyResolver;
+import de.iter8.oauth.token.TokenKeys;
+import de.iter8.oauth.token.TokenModel;
 
 /**
  * Wires the authorization-server engine from configuration: the stores, the client-onboarding resolver and

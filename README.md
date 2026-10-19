@@ -18,11 +18,12 @@ its own registered app, and issues its own audience-bound tokens.
 | Module | Kind | What it is |
 |---|---|---|
 | `cimd` | library | Client ID Metadata Documents: fetch + validate a client's self-description, verify `private_key_jwt`. Provider-neutral. |
-| `oauth-core` | library | The AS engine: PKCE, code/pending stores, the token layer, and the `UpstreamProvider` / `IssuedTokenCodec` SPIs — with `BrokeredTokenProvider` and `OidcIdentityProvider`. |
-| `resource-server` | library | What an MCP server consumes: protected-resource metadata, the bearer challenge, and a security chain validating AS tokens (JWS via JWKS, or JWE via the self-issued introspector). |
+| `token` | library | The token formats shared by the authorization server and resource servers: the JWS, JWE and refresh-token codecs, the token model, and the signing and sealing keys. No Spring dependency. |
+| `oauth-core` | library | The AS engine: PKCE, code/pending stores, and the `UpstreamProvider` SPI — with `BrokeredTokenProvider` and `OidcIdentityProvider`. |
+| `resource-server` | library | What an MCP server consumes, depending only on `token`: protected-resource metadata, the bearer challenge, and a security chain validating AS tokens (JWS via JWKS, or JWE via the self-issued introspector). |
 | `as-app` | **bootJar** | The deployable authorization server, wired from declarative config. |
 
-`cimd`, `oauth-core`, and `resource-server` publish as artifacts (`de.iter8:*`); `as-app` deploys.
+`cimd`, `token`, `oauth-core`, and `resource-server` publish as artifacts (`de.iter8:*`); `as-app` deploys.
 
 ## The two token models
 

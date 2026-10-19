@@ -1,4 +1,4 @@
-package de.iter8.oauth.as;
+package de.iter8.oauth.token;
 
 /**
  * How an issued access token carries what it stands for — the choice that drives which

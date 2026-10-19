@@ -14,10 +14,10 @@ import org.springframework.security.oauth2.server.resource.introspection.BadOpaq
 import org.springframework.security.oauth2.server.resource.introspection.ReactiveOpaqueTokenIntrospector;
 import reactor.core.publisher.Mono;
 
-import de.iter8.oauth.as.InvalidTokenException;
-import de.iter8.oauth.as.IssuedToken;
-import de.iter8.oauth.as.JweTokenCodec;
-import de.iter8.oauth.as.ResourceIdentifiers;
+import de.iter8.oauth.token.InvalidTokenException;
+import de.iter8.oauth.token.IssuedToken;
+import de.iter8.oauth.token.JweTokenCodec;
+import de.iter8.oauth.token.ResourceIdentifiers;
 
 /**
  * Opens a SEALED_CREDENTIAL (JWE) access token the authorization server issued.

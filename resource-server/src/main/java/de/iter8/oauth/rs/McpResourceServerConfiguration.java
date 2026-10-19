@@ -29,12 +29,12 @@ import org.springframework.security.web.server.authorization.AuthorizationContex
 
 import com.nimbusds.jose.jwk.JWK;
 
-import de.iter8.oauth.as.EncryptionJwks;
-import de.iter8.oauth.as.JweTokenCodec;
-import de.iter8.oauth.as.KeyedSealingKeyStore;
-import de.iter8.oauth.as.SealingKeyStore;
-import de.iter8.oauth.as.SingleKeySealingKeyStore;
-import de.iter8.oauth.as.TokenKeys;
+import de.iter8.oauth.token.EncryptionJwks;
+import de.iter8.oauth.token.JweTokenCodec;
+import de.iter8.oauth.token.KeyedSealingKeyStore;
+import de.iter8.oauth.token.SealingKeyStore;
+import de.iter8.oauth.token.SingleKeySealingKeyStore;
+import de.iter8.oauth.token.TokenKeys;
 
 /**
  * Inbound security for an MCP server's endpoints, enabled by {@code iter8.resource-server.enabled}.

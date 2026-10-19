@@ -5,6 +5,9 @@ import java.util.List;
 
 import reactor.core.publisher.Mono;
 
+import de.iter8.oauth.token.IssuedTokenCodec;
+import de.iter8.oauth.token.TokenModel;
+
 /**
  * An upstream identity or authorization provider this server brokers for.
  *

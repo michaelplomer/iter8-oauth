@@ -1,4 +1,4 @@
-package de.iter8.oauth.as;
+package de.iter8.oauth.token;
 
 import lombok.extern.slf4j.Slf4j;
 import java.security.KeyFactory;

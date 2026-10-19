@@ -9,7 +9,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import de.iter8.oauth.as.SealingKeyStore;
+import de.iter8.oauth.token.SealingKeyStore;
 
 /**
  * Publishes the public halves of this resource server's sealing keys, so an authorization server can encrypt
