@@ -24,8 +24,8 @@ import org.springframework.test.web.reactive.server.WebTestClient;
                 "iter8.oauth.providers.google.token-uri=https://oauth2.googleapis.com/token",
                 "iter8.oauth.providers.google.jwks-uri=https://www.googleapis.com/oauth2/v3/certs",
                 "iter8.oauth.providers.google.requested-scope=openid email",
-                "iter8.oauth.providers.google.allowed-hosted-domains=plomer.info",
-                "iter8.oauth.providers.google.scopes-supported=whatable.read,whatable.write",
+                "iter8.oauth.providers.google.allowed-hosted-domains=example.com",
+                "iter8.oauth.providers.google.scopes-supported=notes.read,notes.write",
         })
 class AuthorizationServerSmokeTest {
 
@@ -52,7 +52,7 @@ class AuthorizationServerSmokeTest {
                 .jsonPath("$.client_id_metadata_document_supported").isEqualTo(true)
                 .jsonPath("$.code_challenge_methods_supported[0]").isEqualTo("S256")
                 .jsonPath("$.scopes_supported")
-                .value(org.hamcrest.Matchers.hasItems("whatable.read", "whatable.write"));
+                .value(org.hamcrest.Matchers.hasItems("notes.read", "notes.write"));
     }
 
     @Test

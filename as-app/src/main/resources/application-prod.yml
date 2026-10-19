@@ -28,10 +28,10 @@ iter8:
         jwks-uri: https://www.googleapis.com/oauth2/v3/certs
         accepted-issuers: [https://accounts.google.com, accounts.google.com]
         requested-scope: openid email
-        allowed-hosted-domains: [plomer.info]
-        # Individual external accounts admitted in addition to the whole plomer.info domain.
+        allowed-hosted-domains: [example.com]
+        # Individual external accounts admitted in addition to the whole example.com domain.
         allowed-emails: []
-        scopes-supported: [whatable.read, whatable.write]
+        scopes-supported: [notes.read, notes.write]
 
       # SEALED_CREDENTIAL: Oura brokered, upstream secret hidden inside a JWE (no JWKS published).
       oura:
@@ -48,8 +48,8 @@ iter8:
     # relaxed binding treats the dots as nested keys and the map binds empty, which silently routes every
     # request to default-provider.
     resources:
-      "[https://whatable.mcp.plomer.info/mcp]": google-oidc
-      "[https://oura.mcp.plomer.info/mcp]": oura
+      "[https://notes.example.com/mcp]": google-oidc
+      "[https://oura.example.com/mcp]": oura
 
     default-provider: google-oidc
 

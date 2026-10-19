@@ -5,12 +5,12 @@ spring:
 server:
   # Cloud Run injects PORT; default 8080 locally.
   port: ${PORT:8080}
-  forward-headers-strategy: framework   # honour the proxy's proto/host when building absolute URLs
 
 iter8:
   oauth:
-    # Stamped into every token and checked on every one; set to this server's public URL in deployment.
-    issuer: ${ITER8_OAUTH_ISSUER:}
+    # Stamped into every token and checked on every one. Required: set it to this server's public URL in
+    # deployment. The default only suits a local run.
+    issuer: ${ITER8_OAUTH_ISSUER:http://localhost:${server.port}}
     keys:
       # base64 (X.509 public / PKCS#8 private) or PEM. Absent halves are generated per run (dev only).
       jws-public-key: ${ITER8_OAUTH_JWS_PUBLIC_KEY:}
@@ -18,6 +18,10 @@ iter8:
       refresh-token-key: ${ITER8_OAUTH_REFRESH_TOKEN_KEY:}
       # SEALED_CREDENTIAL keys are not configured here: each resource server publishes its own encryption key,
       # which the AS discovers from that resource's RFC 9728 metadata.
+    # Clients that skip the consent page, by exact client identifier URL. Every other client is shown to the
+    # user for approval before the user is sent to the upstream provider. List only clients you recognize,
+    # for example the metadata URLs of the MCP clients you use.
+    trusted-clients: []
     # Providers and their resource mapping are configured per deployment, e.g.:
     #   providers:
     #     google-oidc:
@@ -29,11 +33,11 @@ iter8:
     #       jwks-uri: https://www.googleapis.com/oauth2/v3/certs
     #       accepted-issuers: [https://accounts.google.com, accounts.google.com]
     #       requested-scope: openid email
-    #       allowed-hosted-domains: [plomer.info]
+    #       allowed-hosted-domains: [example.com]
     #       allowed-emails: []
-    #       scopes-supported: [whatable.read, whatable.write]
+    #       scopes-supported: [notes.read, notes.write]
     #   resources:
-    #     https://whatable.mcp.plomer.info/mcp: google-oidc
+    #     "[https://notes.example.com/mcp]": google-oidc
     #   default-provider: google-oidc
     providers: {}
     resources: {}

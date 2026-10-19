@@ -141,9 +141,17 @@ public class OidcIdentityProvider implements UpstreamProvider {
     @Override
     public Mono<UpstreamResult> refresh(UpstreamResult previous) {
         // Identity is re-issued from the sealed identity without a round trip, within the refresh token's
-        // own lifetime. When that expires the user authenticates again.
-        return Mono.just(UpstreamResult.identity(previous.subject(), previous.scope(),
-                previous.identityClaims()));
+        // own lifetime. When that expires the user authenticates again. The allowlist is applied again first,
+        // so removing someone from it takes effect at their next refresh rather than when the token expires.
+        Map<String, Object> identity =
+                (previous.identityClaims() == null) ? Map.of() : previous.identityClaims();
+        String email = (identity.get("email") instanceof String value) ? value : null;
+        String hostedDomain = (identity.get("hd") instanceof String value) ? value : null;
+        if (email == null || !admits(email, hostedDomain)) {
+            return Mono.error(new UpstreamAuthorizationException(
+                    "This account is no longer admitted by the server's allowlist."));
+        }
+        return Mono.just(UpstreamResult.identity(previous.subject(), previous.scope(), identity));
     }
 
     private UpstreamResult verifyAndGate(String idToken, String scope) {

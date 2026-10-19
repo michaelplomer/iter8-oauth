@@ -15,9 +15,9 @@ import de.iter8.oauth.token.TokenModel;
  * that authorizes it.
  *
  * <p>An MCP client asks to authorize for a particular resource (the downstream MCP server it wants to reach);
- * that resource decides which upstream the user is sent to. A whatable resource maps to Google identity, an
- * Oura resource to the Oura broker. When a request names no resource, or one that is not mapped, the default
- * provider is used.
+ * that resource decides which upstream the user is sent to. A notes resource might map to Google identity
+ * and an Oura resource to the Oura broker. When a request names no resource, or one that is not mapped, the
+ * default provider is used.
  */
 public class ProviderRegistry {
 

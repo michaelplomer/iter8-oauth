@@ -16,6 +16,7 @@ import de.iter8.oauth.token.InvalidTokenException;
 import de.iter8.oauth.token.IssuedToken;
 import de.iter8.oauth.token.JweTokenCodec;
 import de.iter8.oauth.token.JwsTokenCodec;
+import de.iter8.oauth.token.RefreshToken;
 import de.iter8.oauth.token.RefreshTokenCodec;
 import de.iter8.oauth.token.TokenModel;
 
@@ -84,16 +85,16 @@ class TokenCodecTests {
     @Test
     void jws_carries_readable_identity_and_no_secret() {
         JwsTokenCodec codec = new JwsTokenCodec(publicKey, privateKey, ISSUER);
-        String token = codec.encode("client", "google-oidc", "me@plomer.info", "whatable.read",
-                "https://whatable.mcp.test/mcp", null,
-                Map.of("email", "me@plomer.info", "hd", "plomer.info"), Instant.now().plusSeconds(300));
+        String token = codec.encode("client", "google-oidc", "alice@example.com", "notes.read",
+                "https://notes.example.com/mcp", null,
+                Map.of("email", "alice@example.com", "hd", "example.com"), Instant.now().plusSeconds(300));
 
         IssuedToken opened = codec.decode(token);
         assertThat(codec.model()).isEqualTo(TokenModel.SIGNED_IDENTITY);
         assertThat(opened.carriedCredential()).isNull();
-        assertThat(opened.subject()).isEqualTo("me@plomer.info");
-        assertThat(opened.identityClaims()).containsEntry("email", "me@plomer.info")
-                .containsEntry("hd", "plomer.info");
+        assertThat(opened.subject()).isEqualTo("alice@example.com");
+        assertThat(opened.identityClaims()).containsEntry("email", "alice@example.com")
+                .containsEntry("hd", "example.com");
 
         // The published JWKS is public-only — the signing key never leaves the server.
         assertThat(codec.publicJwks().getKeys()).hasSize(1);
@@ -103,13 +104,17 @@ class TokenCodecTests {
     @Test
     void refresh_token_round_trips() {
         RefreshTokenCodec codec = new RefreshTokenCodec(null, ISSUER); // generated key for the run
-        String token = codec.encode("client", "google-oidc", "me@plomer.info", "whatable.read", null, null,
-                Map.of("email", "me@plomer.info"), Instant.now().plusSeconds(300));
+        String family = RefreshTokenCodec.newFamilyId();
+        String token = codec.encode("client", "google-oidc", "alice@example.com", "notes.read", null, null,
+                Map.of("email", "alice@example.com"), family, Instant.now().plusSeconds(300));
 
-        IssuedToken opened = codec.decode(token);
+        RefreshToken refreshToken = codec.decode(token);
+        assertThat(refreshToken.familyId()).isEqualTo(family);
+        assertThat(refreshToken.tokenId()).isNotBlank();
+        IssuedToken opened = refreshToken.token();
         assertThat(opened.clientId()).isEqualTo("client");
-        assertThat(opened.subject()).isEqualTo("me@plomer.info");
-        assertThat(opened.identityClaims()).containsEntry("email", "me@plomer.info");
+        assertThat(opened.subject()).isEqualTo("alice@example.com");
+        assertThat(opened.identityClaims()).containsEntry("email", "alice@example.com");
     }
 
     @Test

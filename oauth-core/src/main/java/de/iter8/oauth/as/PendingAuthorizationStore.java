@@ -18,8 +18,15 @@ import java.util.concurrent.ConcurrentHashMap;
  * <p>In memory, so a restart mid-consent loses the request and the user starts again. That is the right
  * trade for a value that lives for a minute; anything persistent here would be a database of half-finished
  * logins. (A shared store can replace this to allow more than one instance — see the deployment notes.)
+ *
+ * <p>Bounded: a full store refuses new requests rather than growing, so a flood of authorization requests
+ * costs availability, not memory. Expired entries are only swept when the store fills up, which keeps a write
+ * constant-time the rest of the time.
  */
 public class PendingAuthorizationStore {
+
+    /** How many requests may be waiting for the upstream callback at once. */
+    static final int MAX_PENDING = 10_000;
 
     private static final SecureRandom RANDOM = new SecureRandom();
 
@@ -30,9 +37,16 @@ public class PendingAuthorizationStore {
      *
      * @param authorization the validated request
      * @return an unguessable state value
+     * @throws StoreFullException when too many requests are waiting for the upstream callback
      */
     public String store(PendingAuthorization authorization) {
-        purgeExpired();
+        if (this.pending.size() >= MAX_PENDING) {
+            purgeExpired();
+            if (this.pending.size() >= MAX_PENDING) {
+                throw new StoreFullException("Too many authorization requests are waiting for the upstream "
+                        + "provider.");
+            }
+        }
         String state = randomToken();
         this.pending.put(state, authorization);
         return state;

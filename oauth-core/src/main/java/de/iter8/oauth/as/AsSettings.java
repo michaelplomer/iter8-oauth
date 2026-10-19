@@ -1,6 +1,7 @@
 package de.iter8.oauth.as;
 
 import java.time.Duration;
+import java.util.List;
 
 /**
  * The authorization server's own timing knobs, independent of any provider. The deployable app binds these
@@ -11,10 +12,26 @@ import java.time.Duration;
  *     the life of the credential sealed inside it
  * @param refreshTokenTtl how long an issued refresh token stays usable; with no revocation, its expiry is
  *     what ends a session
+ * @param consentTtl how long the user has to answer the consent page
+ * @param trustedClients client identifiers that skip the consent page, compared exactly
  */
 public record AsSettings(
         Duration authorizationCodeTtl,
         Duration accessTokenTtl,
-        Duration refreshTokenTtl
+        Duration refreshTokenTtl,
+        Duration consentTtl,
+        List<String> trustedClients
 ) {
+
+    public AsSettings {
+        trustedClients = (trustedClients == null) ? List.of() : List.copyOf(trustedClients);
+    }
+
+    /**
+     * @param clientId a resolved client identifier
+     * @return whether the client was configured as trusted, and so skips the consent page
+     */
+    public boolean trusts(String clientId) {
+        return this.trustedClients.contains(clientId);
+    }
 }

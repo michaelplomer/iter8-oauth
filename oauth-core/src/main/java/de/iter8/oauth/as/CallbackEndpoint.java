@@ -85,7 +85,7 @@ public class CallbackEndpoint {
                     pending.clientState()));
         }
 
-        String callbackUri = this.uris.absolute(exchange, AsPaths.CALLBACK_PATH);
+        String callbackUri = this.uris.absolute(AsPaths.CALLBACK_PATH);
         return provider.completeCallback(code, callbackUri, pending)
                 .map(result -> {
                     IssuedAuthorizationCode issued = new IssuedAuthorizationCode(provider.id(),
@@ -103,6 +103,14 @@ public class CallbackEndpoint {
                     return Mono.just(redirect(pending.redirectUri(), builder -> builder
                             .queryParam("error", "access_denied")
                             .queryParam("error_description", failure.getMessage()), pending.clientState()));
+                })
+                .onErrorResume(StoreFullException.class, full -> {
+                    log.warn("Could not issue a code to '{}': {}", pending.clientName(), full.getMessage());
+                    return Mono.just(redirect(pending.redirectUri(), builder -> builder
+                            .queryParam("error", "temporarily_unavailable")
+                            .queryParam("error_description", "This server is handling too many "
+                                    + "authorization requests. Try again shortly."),
+                            pending.clientState()));
                 })
                 .onErrorResume(failure -> {
                     log.error("Could not complete the upstream exchange for '{}': {}",

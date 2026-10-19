@@ -9,7 +9,6 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.server.ServerWebExchange;
 
 import de.iter8.oauth.cimd.ClientAssertionVerifier;
 import de.iter8.oauth.cimd.ClientIdMetadata;
@@ -32,11 +31,11 @@ public class AuthorizationServerMetadataController {
     private final AuthorizationServerUris uris;
 
     @GetMapping(path = AsPaths.METADATA_PATH, produces = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<Map<String, Object>> metadata(ServerWebExchange exchange) {
+    public ResponseEntity<Map<String, Object>> metadata() {
         Map<String, Object> document = new LinkedHashMap<>();
-        document.put("issuer", this.uris.issuer(exchange));
-        document.put("authorization_endpoint", this.uris.absolute(exchange, AsPaths.AUTHORIZATION_PATH));
-        document.put("token_endpoint", this.uris.absolute(exchange, AsPaths.TOKEN_PATH));
+        document.put("issuer", this.uris.issuer());
+        document.put("authorization_endpoint", this.uris.absolute(AsPaths.AUTHORIZATION_PATH));
+        document.put("token_endpoint", this.uris.absolute(AsPaths.TOKEN_PATH));
         document.put("response_types_supported", List.of("code"));
         document.put("grant_types_supported", List.of("authorization_code", "refresh_token"));
         // S256 only: 'plain' protects nothing, since an attacker who can read the challenge can replay it.
@@ -50,7 +49,7 @@ public class AuthorizationServerMetadataController {
         document.put("client_id_metadata_document_supported", true);
         document.put("scopes_supported", this.providers.scopesSupported());
         if (this.providers.hasSignedIdentityProvider()) {
-            document.put("jwks_uri", this.uris.absolute(exchange, AsPaths.JWKS_PATH));
+            document.put("jwks_uri", this.uris.absolute(AsPaths.JWKS_PATH));
         }
         return ResponseEntity.ok(document);
     }

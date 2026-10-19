@@ -1,5 +1,5 @@
 [versions]
-# Aligned with whatable/oura: Spring Boot 4 line, Java 25, Gradle 9.x.
+# Spring Boot 4 line, Java 25, Gradle 9.x.
 springBoot = "4.1.1"
 springDependencyMgmt = "1.1.7"
 # Not managed by the Boot 4.1 BOM (comes transitively via Spring Security); pinned explicitly.

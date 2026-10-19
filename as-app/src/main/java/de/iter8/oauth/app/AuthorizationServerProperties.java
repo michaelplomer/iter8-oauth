@@ -11,8 +11,7 @@ import org.springframework.boot.context.properties.bind.DefaultValue;
  * Everything the authorization server is configured with, under {@code iter8.oauth}. The providers and their
  * resource mapping are declarative: adding a backing provider is a config entry, not code.
  *
- * @param issuer this server's issuer identifier, stamped into every token; derived per request when blank,
- *     which is only safe behind a proxy whose forwarded headers are honoured
+ * @param issuer this server's issuer identifier, its public URL, stamped into every token; required
  * @param authorizationCodeTtl how long an issued authorization code (and a pending request) stays usable
  * @param accessTokenTtl how long an issued access token stays usable
  * @param refreshTokenTtl how long an issued refresh token stays usable
@@ -20,6 +19,9 @@ import org.springframework.boot.context.properties.bind.DefaultValue;
  * @param resourceKeyCacheTtl how long a discovered resource encryption key is reused before a background
  *     refresh (SEALED_CREDENTIAL model)
  * @param allowLoopbackClients whether a client identifier may point at loopback (development only)
+ * @param consentTtl how long the user has to answer the consent page
+ * @param trustedClients client identifiers that skip the consent page, compared exactly; every other client
+ *     is shown to the user for approval before the user is sent upstream
  * @param keys the key material for the token codecs
  * @param providers the upstream providers, keyed by the id used in tokens and callbacks
  * @param resources canonical-resource to provider-id, choosing which provider authorizes each resource
@@ -34,6 +36,8 @@ public record AuthorizationServerProperties(
         @DefaultValue("15m") Duration clientMetadataCacheTtl,
         @DefaultValue("15m") Duration resourceKeyCacheTtl,
         @DefaultValue("false") boolean allowLoopbackClients,
+        @DefaultValue("10m") Duration consentTtl,
+        @DefaultValue List<String> trustedClients,
         @DefaultValue Keys keys,
         Map<String, ProviderConfig> providers,
         Map<String, String> resources,

@@ -6,7 +6,6 @@ import java.util.Map;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.oauth2.server.resource.OAuth2ProtectedResourceMetadata;
@@ -25,7 +24,7 @@ import static org.springframework.http.HttpStatus.NOT_FOUND;
 @RequiredArgsConstructor
 @Slf4j
 @RestController
-@ConditionalOnProperty(prefix = "iter8.resource-server", name = "enabled", havingValue = "true")
+@ConditionalOnBoundProperty(name = "iter8.resource-server.enabled", havingValue = "true")
 public class ProtectedResourceMetadataController {
 
     private final McpResourceServerProperties properties;

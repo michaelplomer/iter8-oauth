@@ -16,9 +16,11 @@ import de.iter8.oauth.app.AuthorizationServerProperties.ProviderConfig;
 import de.iter8.oauth.as.AsSettings;
 import de.iter8.oauth.as.AuthorizationCodeStore;
 import de.iter8.oauth.as.AuthorizationServerUris;
+import de.iter8.oauth.as.ConsentStore;
 import de.iter8.oauth.as.DiscoveringResourceEncryptionKeyResolver;
 import de.iter8.oauth.as.PendingAuthorizationStore;
 import de.iter8.oauth.as.ProviderRegistry;
+import de.iter8.oauth.as.RefreshTokenLedger;
 import de.iter8.oauth.as.TokenCodecs;
 import de.iter8.oauth.as.UpstreamProvider;
 import de.iter8.oauth.as.provider.BrokeredTokenProvider;
@@ -50,18 +52,13 @@ class AuthorizationServerConfiguration {
 
     @Bean
     AuthorizationServerUris authorizationServerUris(AuthorizationServerProperties props) {
-        if (props.issuer() == null) {
-            log.warn("iter8.oauth.issuer is not set, so the issuer is derived from each request and stamped "
-                    + "blank into tokens. Behind a TLS-terminating proxy this yields an http issuer, which "
-                    + "clients reject. Set it explicitly for anything but local use.");
-        }
         return new AuthorizationServerUris(props.issuer());
     }
 
     @Bean
     AsSettings asSettings(AuthorizationServerProperties props) {
         return new AsSettings(props.authorizationCodeTtl(), props.accessTokenTtl(),
-                props.refreshTokenTtl());
+                props.refreshTokenTtl(), props.consentTtl(), props.trustedClients());
     }
 
     @Bean
@@ -80,6 +77,16 @@ class AuthorizationServerConfiguration {
     @Bean
     PendingAuthorizationStore pendingAuthorizationStore() {
         return new PendingAuthorizationStore();
+    }
+
+    @Bean
+    ConsentStore consentStore(AuthorizationServerProperties props) {
+        return new ConsentStore(props.consentTtl());
+    }
+
+    @Bean
+    RefreshTokenLedger refreshTokenLedger(AuthorizationServerProperties props) {
+        return new RefreshTokenLedger(props.refreshTokenTtl());
     }
 
     @Bean
@@ -190,6 +197,6 @@ class AuthorizationServerConfiguration {
     }
 
     private static String issuer(AuthorizationServerProperties props) {
-        return (props.issuer() == null) ? "" : props.issuer();
+        return new AuthorizationServerUris(props.issuer()).issuer();
     }
 }

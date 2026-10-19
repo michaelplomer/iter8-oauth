@@ -8,14 +8,18 @@ import java.util.concurrent.ConcurrentHashMap;
 /**
  * Holds the authorization codes this server has issued.
  *
- * <p>This is the one thing in the flow that genuinely needs state. A code must be redeemable exactly once,
- * and single use cannot be expressed in a self-contained value: anything the client holds, the client can
- * present twice. Access and refresh tokens carry their own contents and are kept nowhere.
+ * <p>A code must be redeemable exactly once, and single use cannot be expressed in a self-contained value:
+ * anything the client holds, the client can present twice. Access and refresh tokens carry their own
+ * contents; only the identifiers of spent refresh tokens are remembered, by {@link RefreshTokenLedger}.
  *
  * <p>Codes live for about a minute, so the store is small by construction, and losing it on a restart costs
- * whoever was mid-authorization one retry.
+ * whoever was mid-authorization one retry. It is bounded all the same, and only swept for expired codes when
+ * it fills up.
  */
 public class AuthorizationCodeStore {
+
+    /** How many issued codes may be awaiting redemption at once. */
+    static final int MAX_CODES = 10_000;
 
     private final Map<String, IssuedAuthorizationCode> codes = new ConcurrentHashMap<>();
 
@@ -24,7 +28,12 @@ public class AuthorizationCodeStore {
      * @return the code value to hand the client
      */
     public String store(IssuedAuthorizationCode code) {
-        purgeExpired();
+        if (this.codes.size() >= MAX_CODES) {
+            purgeExpired();
+            if (this.codes.size() >= MAX_CODES) {
+                throw new StoreFullException("Too many authorization codes are awaiting redemption.");
+            }
+        }
         String value = PendingAuthorizationStore.randomToken();
         this.codes.put(value, code);
         return value;

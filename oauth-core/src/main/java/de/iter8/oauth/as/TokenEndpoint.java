@@ -25,6 +25,7 @@ import de.iter8.oauth.cimd.ClientIdMetadataResolver;
 import de.iter8.oauth.token.InvalidTokenException;
 import de.iter8.oauth.token.IssuedToken;
 import de.iter8.oauth.token.IssuedTokenCodec;
+import de.iter8.oauth.token.RefreshToken;
 import de.iter8.oauth.token.RefreshTokenCodec;
 import de.iter8.oauth.token.TokenModel;
 
@@ -50,6 +51,8 @@ public class TokenEndpoint {
     private final TokenCodecs codecs;
 
     private final RefreshTokenCodec refreshTokens;
+
+    private final RefreshTokenLedger refreshLedger;
 
     private final ClientIdMetadataResolver clients;
 
@@ -109,8 +112,8 @@ public class TokenEndpoint {
         return authenticate(issued.clientId(), issued.tokenEndpointAuthMethod(), form, exchange)
                 .then(Mono.fromSupplier(() -> {
                     log.info("Issuing tokens to '{}'.", issued.clientId());
-                    return issue(provider, issued.clientId(), issued.scope(), issued.resource(),
-                            issued.upstreamResult());
+                    return issue(provider, RefreshTokenCodec.newFamilyId(), issued.clientId(), issued.scope(),
+                            issued.resource(), issued.upstreamResult());
                 }))
                 .onErrorResume(ClientAssertionException.class, failure -> {
                     log.warn("Refused a token request for '{}': {}", issued.clientId(),
@@ -122,13 +125,14 @@ public class TokenEndpoint {
 
     private Mono<ResponseEntity<Map<String, Object>>> refresh(MultiValueMap<String, String> form,
             ServerWebExchange exchange) {
-        IssuedToken presented;
+        RefreshToken refreshToken;
         try {
-            presented = this.refreshTokens.decode(form.getFirst("refresh_token"));
+            refreshToken = this.refreshTokens.decode(form.getFirst("refresh_token"));
         }
         catch (InvalidTokenException failure) {
             return Mono.just(error(HttpStatus.BAD_REQUEST, "invalid_grant", failure.getMessage()));
         }
+        IssuedToken presented = refreshToken.token();
         String clientId = form.getFirst("client_id");
         if (clientId != null && !presented.clientId().equals(clientId)) {
             return Mono.just(error(HttpStatus.BAD_REQUEST, "invalid_grant",
@@ -140,16 +144,34 @@ public class TokenEndpoint {
                     "The provider for this authorization is no longer available."));
         }
         UpstreamResult prior = rebuild(provider, presented);
+        // The token is spent only once the client has authenticated, so a failed assertion does not burn it.
         return authenticateFromDocument(presented.clientId(), form, exchange)
-                .then(provider.refresh(prior))
-                .map(result -> {
-                    log.info("Refreshed tokens for '{}'.", presented.clientId());
-                    return issue(provider, presented.clientId(), presented.scope(), presented.resource(),
-                            result);
+                .then(Mono.fromCallable(() -> this.refreshLedger.spend(refreshToken.tokenId(),
+                        refreshToken.familyId(), presented.expiresAt())))
+                .flatMap(outcome -> switch (outcome) {
+                    case FIRST_USE -> provider.refresh(prior).map(result -> {
+                        log.info("Refreshed tokens for '{}'.", presented.clientId());
+                        return issue(provider, refreshToken.familyId(), presented.clientId(),
+                                presented.scope(), presented.resource(), result);
+                    });
+                    case REUSED -> {
+                        log.warn("A refresh token issued to '{}' was presented a second time, so it was "
+                                + "copied. Revoked every token in its family.", presented.clientId());
+                        yield Mono.just(error(HttpStatus.BAD_REQUEST, "invalid_grant", "This refresh token "
+                                + "was already used, so this authorization has been revoked. The user must "
+                                + "authorize again."));
+                    }
+                    case REVOKED -> Mono.just(error(HttpStatus.BAD_REQUEST, "invalid_grant",
+                            "This authorization has been revoked. The user must authorize again."));
                 })
                 .onErrorResume(ClientAssertionException.class, failure -> {
                     log.warn("Refused a refresh for '{}': {}", presented.clientId(), failure.getMessage());
                     return Mono.just(error(HttpStatus.UNAUTHORIZED, "invalid_client", failure.getMessage()));
+                })
+                .onErrorResume(StoreFullException.class, full -> {
+                    log.warn("Refused a refresh for '{}': {}", presented.clientId(), full.getMessage());
+                    return Mono.just(error(HttpStatus.SERVICE_UNAVAILABLE, "temporarily_unavailable",
+                            "This server cannot record more refreshes right now. Try again shortly."));
                 })
                 .onErrorResume(failure -> {
                     log.warn("Provider '{}' would not refresh for '{}': {}", provider.id(),
@@ -190,7 +212,7 @@ public class TokenEndpoint {
         String assertion = form.getFirst("client_assertion");
         if (assertion != null && !assertion.isBlank()) {
             return this.assertions.verify(client, form.getFirst("client_assertion_type"), assertion,
-                    audiences(exchange));
+                    audiences());
         }
         if (client.allowsPublicRedemption()) {
             log.debug("'{}' declares private_key_jwt but also supports none, and presented no assertion; "
@@ -202,12 +224,12 @@ public class TokenEndpoint {
                 + "client_assertion is required."));
     }
 
-    private Set<String> audiences(ServerWebExchange exchange) {
-        return Set.of(this.uris.issuer(exchange), this.uris.absolute(exchange, AsPaths.TOKEN_PATH));
+    private Set<String> audiences() {
+        return Set.of(this.uris.issuer(), this.uris.absolute(AsPaths.TOKEN_PATH));
     }
 
-    private ResponseEntity<Map<String, Object>> issue(UpstreamProvider provider, String clientId,
-            String scope, String resource, UpstreamResult result) {
+    private ResponseEntity<Map<String, Object>> issue(UpstreamProvider provider, String familyId,
+            String clientId, String scope, String resource, UpstreamResult result) {
         IssuedTokenCodec codec = this.codecs.forModel(provider.tokenModel());
 
         // A sealed credential caps the access token's life; an identity token lives its full configured TTL.
@@ -227,7 +249,7 @@ public class TokenEndpoint {
                 || provider.tokenModel() == TokenModel.SIGNED_IDENTITY;
         if (issueRefresh) {
             body.put("refresh_token", this.refreshTokens.encode(clientId, provider.id(), result.subject(),
-                    scope, resource, result.refreshCredential(), result.identityClaims(),
+                    scope, resource, result.refreshCredential(), result.identityClaims(), familyId,
                     Instant.now().plus(this.settings.refreshTokenTtl())));
         }
         if (scope != null) {

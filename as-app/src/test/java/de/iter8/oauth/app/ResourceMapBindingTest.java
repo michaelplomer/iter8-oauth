@@ -19,8 +19,8 @@ class ResourceMapBindingTest {
     @Test
     void url_keyed_resource_map_binds() {
         MapConfigurationPropertySource source = new MapConfigurationPropertySource(Map.of(
-                "iter8.oauth.resources[https://oura.mcp.plomer.info/mcp]", "oura",
-                "iter8.oauth.resources[https://whatable.mcp.plomer.info/mcp]", "google-oidc",
+                "iter8.oauth.resources[https://oura.example.com/mcp]", "oura",
+                "iter8.oauth.resources[https://notes.example.com/mcp]", "google-oidc",
                 "iter8.oauth.default-provider", "google-oidc"));
 
         AuthorizationServerProperties props = new Binder(source)
@@ -28,8 +28,8 @@ class ResourceMapBindingTest {
                 .get();
 
         assertThat(props.resources())
-                .containsEntry("https://oura.mcp.plomer.info/mcp", "oura")
-                .containsEntry("https://whatable.mcp.plomer.info/mcp", "google-oidc");
+                .containsEntry("https://oura.example.com/mcp", "oura")
+                .containsEntry("https://notes.example.com/mcp", "google-oidc");
         assertThat(props.defaultProvider()).isEqualTo("google-oidc");
     }
 }

@@ -7,7 +7,6 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -37,7 +36,11 @@ import de.iter8.oauth.token.SingleKeySealingKeyStore;
 import de.iter8.oauth.token.TokenKeys;
 
 /**
- * Inbound security for an MCP server's endpoints, enabled by {@code iter8.resource-server.enabled}.
+ * Inbound security for an MCP server's endpoints, switched by {@code iter8.resource-server.enabled}.
+ *
+ * <p>That property has no default. An app that adds this library has asked for its endpoints to be protected,
+ * so leaving the property out, or misspelling its prefix, fails startup rather than silently accepting every
+ * request. Set it to {@code false} only for stdio or a loopback port.
  *
  * <p>The protected path is an OAuth 2.0 protected resource. Tokens are validated either as signed identity
  * JWTs against the AS JWKS (JWS) or as self-issued sealed tokens opened with this server's private key
@@ -60,16 +63,30 @@ public class McpResourceServerConfiguration {
     };
 
     /**
-     * Open chain, used when inbound authorization is disabled. Because Spring Security is on the classpath
-     * (the resource-server library pulls it), an app that configured no chain would otherwise inherit Boot's
-     * default, which locks every endpoint behind generated Basic auth. This keeps everything open until the
-     * MCP server is deliberately protected.
+     * The security chain for the MCP server, chosen by the bound value of
+     * {@code iter8.resource-server.enabled}. Dispatching on the bound value, rather than on two
+     * string-matched conditions, means a spelling such as {@code on} selects the secured chain instead of
+     * selecting neither.
      */
     @Bean
-    @ConditionalOnProperty(prefix = "iter8.resource-server", name = "enabled", havingValue = "false",
-            matchIfMissing = true)
-    SecurityWebFilterChain openMcpSecurity(ServerHttpSecurity http) {
-        log.info("MCP inbound authorization is disabled; every request is accepted. Set "
+    SecurityWebFilterChain mcpSecurityWebFilterChain(ServerHttpSecurity http,
+            McpResourceServerProperties properties) {
+        Boolean enabled = properties.enabled();
+        if (enabled == null) {
+            throw new IllegalStateException("iter8.resource-server.enabled is not set. Set it to true to "
+                    + "require an access token on the MCP endpoint, or to false to accept every request, "
+                    + "which is only safe over stdio or a loopback port.");
+        }
+        return enabled ? securedChain(http, properties) : openChain(http);
+    }
+
+    /**
+     * Accepts every request. Because Spring Security is on the classpath (this library pulls it), an app with
+     * no chain of its own would otherwise inherit Boot's default, which locks every endpoint behind generated
+     * Basic auth.
+     */
+    private static SecurityWebFilterChain openChain(ServerHttpSecurity http) {
+        log.warn("MCP inbound authorization is disabled; every request is accepted. Set "
                 + "iter8.resource-server.enabled=true before exposing this server beyond localhost.");
         http.csrf(ServerHttpSecurity.CsrfSpec::disable)
                 .httpBasic(ServerHttpSecurity.HttpBasicSpec::disable)
@@ -78,9 +95,7 @@ public class McpResourceServerConfiguration {
         return http.build();
     }
 
-    @Bean
-    @ConditionalOnProperty(prefix = "iter8.resource-server", name = "enabled", havingValue = "true")
-    SecurityWebFilterChain mcpSecurityWebFilterChain(ServerHttpSecurity http,
+    private static SecurityWebFilterChain securedChain(ServerHttpSecurity http,
             McpResourceServerProperties properties) {
 
         McpBearerTokenEntryPoint entryPoint = new McpBearerTokenEntryPoint(
@@ -111,8 +126,8 @@ public class McpResourceServerConfiguration {
      * restriction is what keeps a token issued for another resource from being replayed here.
      */
     @Bean
-    @ConditionalOnProperty(prefix = "iter8.resource-server", name = "enabled", havingValue = "true")
-    @ConditionalOnProperty(prefix = "iter8.resource-server", name = "token-validation", havingValue = "jws",
+    @ConditionalOnBoundProperty(name = "iter8.resource-server.enabled", havingValue = "true")
+    @ConditionalOnBoundProperty(name = "iter8.resource-server.token-validation", havingValue = "jws",
             matchIfMissing = true)
     ReactiveJwtDecoder mcpJwtDecoder(McpResourceServerProperties properties) {
         String issuer = properties.issuerUri();
@@ -145,8 +160,8 @@ public class McpResourceServerConfiguration {
      * publishes for the authorization server to seal to (see {@link ResourceEncryptionJwksController}).
      */
     @Bean
-    @ConditionalOnProperty(prefix = "iter8.resource-server", name = "enabled", havingValue = "true")
-    @ConditionalOnProperty(prefix = "iter8.resource-server", name = "token-validation", havingValue = "jwe")
+    @ConditionalOnBoundProperty(name = "iter8.resource-server.enabled", havingValue = "true")
+    @ConditionalOnBoundProperty(name = "iter8.resource-server.token-validation", havingValue = "jwe")
     SealingKeyStore sealingKeyStore(McpResourceServerProperties properties) {
         return buildSealingKeyStore(properties);
     }
@@ -155,8 +170,8 @@ public class McpResourceServerConfiguration {
      * The introspector for self-issued JWE tokens, opened with the private key the token's {@code kid} names.
      */
     @Bean
-    @ConditionalOnProperty(prefix = "iter8.resource-server", name = "enabled", havingValue = "true")
-    @ConditionalOnProperty(prefix = "iter8.resource-server", name = "token-validation", havingValue = "jwe")
+    @ConditionalOnBoundProperty(name = "iter8.resource-server.enabled", havingValue = "true")
+    @ConditionalOnBoundProperty(name = "iter8.resource-server.token-validation", havingValue = "jwe")
     ReactiveOpaqueTokenIntrospector selfIssuedTokenIntrospector(McpResourceServerProperties properties,
             SealingKeyStore sealingKeyStore) {
         String issuer = properties.issuerUri();

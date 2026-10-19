@@ -26,8 +26,8 @@ java {
     toolchain { languageVersion = JavaLanguageVersion.of(25) }
 }
 
-// Compile with JDK 25 but emit Java 17 bytecode, so these libraries are consumable by any JVM >= 17
-// (whatable runs on 25, oura-mcp on 17). Spring Boot 4.1's own baseline is 17, so this fits.
+// Compile with JDK 25 but emit Java 17 bytecode, so these libraries are consumable by any JVM >= 17.
+// Spring Boot 4.1's own baseline is 17, so this fits.
 tasks.withType<JavaCompile>().configureEach {
     options.release.set(17)
 }

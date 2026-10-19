@@ -1,48 +1,42 @@
 package de.iter8.oauth.as;
 
-import java.net.URI;
-
-import org.springframework.web.server.ServerWebExchange;
-
 /**
  * Resolves this authorization server's own absolute URLs.
  *
  * <p>The issuer is the identity everything else is written against: it appears in the metadata document, it
- * is what a client checks the metadata against, and it prefixes every endpoint advertised. Deriving it from
- * the request is convenient and fragile in the same breath — behind a TLS-terminating proxy the request
- * arrives as plain HTTP, so an unconfigured issuer comes out as {@code http://} and every client rejects it.
- * Configuring the issuer explicitly is the way to be certain.
+ * is what a client checks the metadata against, and it prefixes every endpoint advertised. It must be
+ * configured. Deriving it from the request would let whoever controls the request's Host or forwarded headers
+ * choose the issuer, and behind a TLS-terminating proxy it would come out as {@code http://}.
  */
 public final class AuthorizationServerUris {
 
-    private final String configuredIssuer;
+    private final String issuer;
 
     /**
-     * @param configuredIssuer this server's issuer identifier, or {@code null}/blank to derive it per request
+     * @param issuer this server's issuer identifier, its public URL
+     * @throws IllegalStateException when the issuer is missing or blank
      */
-    public AuthorizationServerUris(String configuredIssuer) {
-        this.configuredIssuer = configuredIssuer;
+    public AuthorizationServerUris(String issuer) {
+        if (issuer == null || issuer.isBlank()) {
+            throw new IllegalStateException("iter8.oauth.issuer is not set. Set it to this server's public "
+                    + "URL, for example https://auth.example.com.");
+        }
+        this.issuer = stripTrailingSlash(issuer);
     }
 
     /**
-     * @param exchange the current exchange, used only when no issuer is configured
      * @return this server's issuer identifier, without a trailing slash
      */
-    public String issuer(ServerWebExchange exchange) {
-        if (this.configuredIssuer != null && !this.configuredIssuer.isBlank()) {
-            return stripTrailingSlash(this.configuredIssuer);
-        }
-        URI uri = exchange.getRequest().getURI();
-        return uri.getScheme() + "://" + uri.getAuthority();
+    public String issuer() {
+        return this.issuer;
     }
 
     /**
-     * @param exchange the current exchange
      * @param path a path beginning with a slash
      * @return the absolute URL of that path on this server
      */
-    public String absolute(ServerWebExchange exchange, String path) {
-        return issuer(exchange) + path;
+    public String absolute(String path) {
+        return this.issuer + path;
     }
 
     private static String stripTrailingSlash(String value) {

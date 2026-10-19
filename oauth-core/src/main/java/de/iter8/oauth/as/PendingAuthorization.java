@@ -39,4 +39,14 @@ public record PendingAuthorization(
     public boolean isExpired() {
         return Instant.now().isAfter(this.expiresAt);
     }
+
+    /**
+     * @param expiresAt the new expiry
+     * @return this request with a fresh expiry, for when the upstream leg starts after the consent page
+     */
+    public PendingAuthorization withExpiry(Instant expiresAt) {
+        return new PendingAuthorization(this.providerId, this.clientId, this.clientName, this.redirectUri,
+                this.clientState, this.codeChallenge, this.tokenEndpointAuthMethod, this.scope, this.resource,
+                expiresAt);
+    }
 }

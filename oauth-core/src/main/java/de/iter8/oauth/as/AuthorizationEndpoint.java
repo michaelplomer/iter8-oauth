@@ -6,6 +6,7 @@ import java.util.List;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -32,6 +33,11 @@ import de.iter8.oauth.cimd.ClientIdMetadataResolver;
  * the redirect URL matched exactly against the document, this server has no idea where the client really
  * lives, so a failure at that stage must be shown to the user rather than redirected. Only once both are
  * known good does the endpoint start reporting errors the way OAuth expects, by redirecting.
+ *
+ * <p>Before the user is sent upstream, they are asked whether this client may continue (see
+ * {@link ConsentPage}), unless the client is configured as trusted. The upstream provider's consent covers
+ * this server's app, not the client, so without this step any client could obtain a code for a user who had
+ * approved this server before.
  */
 @RequiredArgsConstructor
 @Slf4j
@@ -45,6 +51,8 @@ public class AuthorizationEndpoint {
     private final ClientIdMetadataResolver clients;
 
     private final PendingAuthorizationStore pendingAuthorizations;
+
+    private final ConsentStore consents;
 
     private final AsSettings settings;
 
@@ -121,14 +129,36 @@ public class AuthorizationEndpoint {
         PendingAuthorization authorization = new PendingAuthorization(provider.id(), client.clientId(),
                 client.displayName(), redirectUri, state, codeChallenge, client.tokenEndpointAuthMethod(),
                 scope, resource, PendingAuthorizationStore.expiryFrom(this.settings.authorizationCodeTtl()));
-        String upstreamState = this.pendingAuthorizations.store(authorization);
+        try {
+            if (this.settings.trusts(client.clientId())) {
+                log.info("Authorizing trusted client '{}' ({}) via provider '{}'; sending the user upstream.",
+                        client.displayName(), client.clientId(), provider.id());
+                return ResponseEntity.status(HttpStatus.FOUND)
+                        .location(UpstreamRedirect.start(this.pendingAuthorizations, this.uris, provider,
+                                authorization))
+                        .build();
+            }
+            return consentPage(authorization);
+        }
+        catch (StoreFullException full) {
+            log.warn("Refused an authorization request from {}: {}", client.clientId(), full.getMessage());
+            return redirectError(redirectUri, state, "temporarily_unavailable",
+                    "This server is handling too many authorization requests. Try again shortly.");
+        }
+    }
 
-        String callbackUri = this.uris.absolute(exchange, AsPaths.CALLBACK_PATH);
-        log.info("Authorizing '{}' ({}) via provider '{}'; sending the user upstream to consent.",
-                client.displayName(), client.clientId(), provider.id());
-        return ResponseEntity.status(HttpStatus.FOUND)
-                .location(provider.authorizationRequestUri(upstreamState, callbackUri, scope))
-                .build();
+    private ResponseEntity<String> consentPage(PendingAuthorization authorization) {
+        String binding = PendingAuthorizationStore.randomToken();
+        String consentId = this.consents.store(authorization, binding);
+        String formAction = this.uris.absolute(AsPaths.CONSENT_PATH);
+        log.info("Asking the user whether '{}' ({}) may continue to provider '{}'.",
+                authorization.clientName(), authorization.clientId(), authorization.providerId());
+        return ResponseEntity.ok()
+                .headers(ConsentPage.headers())
+                .header(HttpHeaders.SET_COOKIE,
+                        ConsentEndpoint.bindingCookie(consentId, binding, formAction, this.consents.ttl()))
+                .contentType(MediaType.TEXT_HTML)
+                .body(ConsentPage.render(formAction, consentId, authorization));
     }
 
     private String firstUnsupportedScope(String scope, UpstreamProvider provider) {
@@ -144,7 +174,7 @@ public class AuthorizationEndpoint {
         return null;
     }
 
-    private static ResponseEntity<String> redirectError(String redirectUri, String state, String error,
+    static ResponseEntity<String> redirectError(String redirectUri, String state, String error,
             String description) {
         UriComponentsBuilder location = UriComponentsBuilder.fromUriString(redirectUri)
                 .queryParam("error", error)
@@ -157,7 +187,7 @@ public class AuthorizationEndpoint {
                 .build();
     }
 
-    private static ResponseEntity<String> errorPage(HttpStatus status, String title, String detail) {
+    static ResponseEntity<String> errorPage(HttpStatus status, String title, String detail) {
         return ResponseEntity.status(status)
                 .contentType(MediaType.TEXT_PLAIN)
                 .body(title + "\n\n" + detail + "\n");

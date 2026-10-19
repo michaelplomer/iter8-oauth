@@ -5,9 +5,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.Date;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
 
 import com.nimbusds.jose.JWSAlgorithm;
 import com.nimbusds.jose.jwk.JWK;
@@ -66,7 +64,10 @@ public class ClientAssertionVerifier {
 
     private final Duration cacheTtl;
 
-    private final Map<String, CachedKeys> keys = new ConcurrentHashMap<>();
+    /** How many client key sets are kept. Their URLs are chosen by clients, so this has to be bounded. */
+    static final int MAX_CACHED_KEY_SETS = 1_000;
+
+    private final ExpiringCache<JWKSet> keys = new ExpiringCache<>(MAX_CACHED_KEY_SETS);
 
     /**
      * @param resolver used to fetch the client's key set under the same rules as its metadata document
@@ -178,9 +179,9 @@ public class ClientAssertionVerifier {
     }
 
     private Mono<JWKSet> keySet(ClientIdMetadata client) {
-        CachedKeys cached = this.keys.get(client.jwksUri());
-        if (cached != null && cached.isFresh()) {
-            return Mono.just(cached.keySet());
+        JWKSet cached = this.keys.getFresh(client.jwksUri());
+        if (cached != null) {
+            return Mono.just(cached);
         }
         return this.resolver.fetchFromClientUrl(client.jwksUri(), "jwks_uri")
                 .map(body -> {
@@ -196,20 +197,12 @@ public class ClientAssertionVerifier {
                         throw new ClientAssertionException(
                                 "The client's jwks_uri publishes no key this server can verify with.");
                     }
-                    this.keys.put(client.jwksUri(),
-                            new CachedKeys(parsed, Instant.now().plus(this.cacheTtl)));
+                    this.keys.put(client.jwksUri(), parsed, Instant.now().plus(this.cacheTtl));
                     return parsed;
                 });
     }
 
     private static boolean isUsable(JWK key) {
         return KeyType.RSA.equals(key.getKeyType()) || KeyType.EC.equals(key.getKeyType());
-    }
-
-    private record CachedKeys(JWKSet keySet, Instant expiresAt) {
-
-        boolean isFresh() {
-            return Instant.now().isBefore(this.expiresAt);
-        }
     }
 }

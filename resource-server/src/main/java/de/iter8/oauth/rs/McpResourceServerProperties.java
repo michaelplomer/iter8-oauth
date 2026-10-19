@@ -9,10 +9,11 @@ import org.springframework.boot.context.properties.bind.DefaultValue;
  * Inbound authorization for an MCP server that trusts the iter8-oauth authorization server. The MCP endpoint
  * is an OAuth 2.0 protected resource; clients present access tokens the AS issued.
  *
- * <p>Disabled by default, so a local stdio/loopback run needs no tokens. Turn it on for anything reachable
- * off the machine.
+ * <p>{@code enabled} has no default and must be set explicitly: {@code true} for anything reachable off the
+ * machine, {@code false} only for a stdio or loopback run, which needs no tokens.
  *
- * @param enabled whether MCP requests must carry a valid access token
+ * @param enabled whether MCP requests must carry a valid access token; {@code null} when unset, which fails
+ *     startup
  * @param resource this server's canonical resource identifier (RFC 8707); the AS puts it in the token's
  *     audience, which is what stops a token minted for another resource being replayed here
  * @param resourceName a human-readable name for the protected resource metadata document
@@ -31,7 +32,7 @@ import org.springframework.boot.context.properties.bind.DefaultValue;
  */
 @ConfigurationProperties("iter8.resource-server")
 public record McpResourceServerProperties(
-        @DefaultValue("false") boolean enabled,
+        Boolean enabled,
         String resource,
         @DefaultValue("MCP Server") String resourceName,
         @DefaultValue List<String> authorizationServers,

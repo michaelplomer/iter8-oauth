@@ -7,7 +7,6 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.io.buffer.DataBufferLimitException;
@@ -58,7 +57,10 @@ public class ClientIdMetadataResolver {
 
     private final boolean allowLoopback;
 
-    private final Map<String, CacheEntry> cache = new ConcurrentHashMap<>();
+    /** How many client documents are kept. Callers choose client identifiers, so this has to be bounded. */
+    static final int MAX_CACHED_CLIENTS = 1_000;
+
+    private final ExpiringCache<ClientIdMetadata> cache = new ExpiringCache<>(MAX_CACHED_CLIENTS);
 
     /**
      * @param webClientBuilder used to build a dedicated client with a small buffer and no redirect following
@@ -91,15 +93,14 @@ public class ClientIdMetadataResolver {
         if (error != null) {
             return Mono.error(new ClientIdMetadataException(error));
         }
-        CacheEntry cached = this.cache.get(clientId);
-        if (cached != null && cached.isFresh()) {
-            return Mono.just(cached.metadata());
+        ClientIdMetadata cached = this.cache.getFresh(clientId);
+        if (cached != null) {
+            return Mono.just(cached);
         }
         return assertNotSpecialUse(clientId, "client_id")
                 .then(fetch(clientId, "client metadata document"))
                 .map(document -> validate(clientId, document))
-                .doOnNext(metadata -> this.cache.put(clientId,
-                        new CacheEntry(metadata, Instant.now().plus(this.cacheTtl))));
+                .doOnNext(metadata -> this.cache.put(clientId, metadata, Instant.now().plus(this.cacheTtl)));
     }
 
     /**
@@ -228,12 +229,5 @@ public class ClientIdMetadataResolver {
                     + "to verify its assertion against.");
         }
         return metadata;
-    }
-
-    private record CacheEntry(ClientIdMetadata metadata, Instant expiresAt) {
-
-        boolean isFresh() {
-            return Instant.now().isBefore(this.expiresAt);
-        }
     }
 }

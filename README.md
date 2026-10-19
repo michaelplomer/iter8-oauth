@@ -40,8 +40,10 @@ can never emit a readable token:
 ```yaml
 iter8:
   oauth:
-    issuer: https://oauth.plomer.info
+    issuer: https://auth.example.com   # required: this server's public URL
     keys: { jws-private-key: ..., jws-public-key: ... }   # generated per-run if absent (dev)
+    trusted-clients:                   # optional: clients that skip the consent page
+      - https://client.example.com/oauth/metadata.json
     providers:
       google-oidc:
         type: oidc-identity
@@ -52,12 +54,12 @@ iter8:
         jwks-uri: https://www.googleapis.com/oauth2/v3/certs
         accepted-issuers: [https://accounts.google.com, accounts.google.com]
         requested-scope: openid email
-        allowed-hosted-domains: [plomer.info]   # whole Workspace, by the hd claim (not email suffix)
-        allowed-emails: [friend@gmail.com]      # individual external accounts
-        scopes-supported: [whatable.read, whatable.write]
+        allowed-hosted-domains: [example.com]   # whole Workspace, by the hd claim (not email suffix)
+        allowed-emails: [bob@example.org]       # individual external accounts
+        scopes-supported: [notes.read, notes.write]
     resources:
       # URL keys contain dots, so they must be bracket-quoted or Spring binds the map empty.
-      "[https://whatable.mcp.plomer.info/mcp]": google-oidc
+      "[https://notes.example.com/mcp]": google-oidc
     default-provider: google-oidc
 ```
 
@@ -66,21 +68,54 @@ iter8:
 ```yaml
 iter8:
   resource-server:
-    enabled: true
-    resource: https://whatable.mcp.plomer.info/mcp
-    authorization-servers: [https://oauth.plomer.info]
+    enabled: true                    # required: true, or false for stdio and loopback only
+    resource: https://notes.example.com/mcp
+    authorization-servers: [https://auth.example.com]
     token-validation: jws            # or jwe (then set encryption-keys)
-    required-scopes: [whatable.read]
+    required-scopes: [notes.read]
 ```
+
+`enabled` has no default. An app that adds the library and leaves it unset, or misspells the prefix, fails at
+startup instead of silently accepting every request.
+
+## Security model and limits
+
+**Consent.** Before sending a user to the upstream provider, the server shows a consent page naming the client
+by its client ID URL, where the authorization result will be sent, and what is requested. Without it, any
+client that publishes a metadata document could obtain a code for a user who had approved this server's app
+at the upstream provider before, since that approval covers this server, not the client. The page's answer
+only counts in the browser it was shown in. Clients listed in `trusted-clients` skip the page; list only
+clients you recognize.
+
+**Refresh tokens** are single-use. Each refresh returns a new token, and presenting a token a second time
+revokes every token descended from the same authorization, so a copied token ends the session for both the
+copy and the original. Refreshing an identity token applies the domain and email allowlist again.
+
+**Client metadata** is only fetched over https, never from private or other special-use addresses (including
+IPv6 forms that carry such an address), without following redirects, and with a 5 KB size limit.
+
+**Limits** to be aware of:
+
+- State is held in memory, so the server runs as a single instance. A restart loses authorizations in progress
+  and forgets which refresh tokens were spent, so a token used before the restart can be used once more.
+- The pending stores and caches are bounded. When full, new requests are refused rather than letting memory
+  grow, so a flood of requests costs availability. There is no rate limiting in the server itself; put it
+  behind a proxy or load balancer that limits requests per client.
+- A client's `private_key_jwt` assertion is not tracked after use, so a captured assertion stays usable for the
+  rest of its lifetime, at most five minutes.
+- The metadata fetch resolves the client's host once to check the address and again to connect, so a host
+  whose DNS answer changes in between could reach an address the check refused (DNS rebinding).
 
 ## Build & test
 
 ```bash
 ./gradlew build
 ```
-In `oauth-core`, the tests cover token-codec round-trips and fail-closed codec selection, resource encryption
-keys, and the Google domain and allowlist gate. In `as-app`, they cover resource map binding, the brokered
-authorization flow, and a full context boot serving metadata, JWKS and authorize.
+The tests cover the special-use address checks and the bounded cache (`cimd`); token codecs and fail-closed
+codec selection, resource encryption keys, the allowlist gate including on refresh, refresh token reuse
+detection, and the store limits (`oauth-core`); when the resource server starts and what it protects
+(`resource-server`); and in `as-app`, resource map binding, the brokered authorization flow, the consent page,
+and a full context boot serving metadata, JWKS and authorize.
 
 ## Generating keys
 

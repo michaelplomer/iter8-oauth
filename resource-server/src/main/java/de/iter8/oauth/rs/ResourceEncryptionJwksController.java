@@ -3,7 +3,6 @@ package de.iter8.oauth.rs;
 import java.util.Map;
 
 import lombok.RequiredArgsConstructor;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -22,8 +21,8 @@ import de.iter8.oauth.token.SealingKeyStore;
  */
 @RequiredArgsConstructor
 @RestController
-@ConditionalOnProperty(prefix = "iter8.resource-server", name = "enabled", havingValue = "true")
-@ConditionalOnProperty(prefix = "iter8.resource-server", name = "token-validation", havingValue = "jwe")
+@ConditionalOnBoundProperty(name = "iter8.resource-server.enabled", havingValue = "true")
+@ConditionalOnBoundProperty(name = "iter8.resource-server.token-validation", havingValue = "jwe")
 public class ResourceEncryptionJwksController {
 
     /** Where the public sealing keys are published; named by this resource's metadata {@code jwks_uri}. */

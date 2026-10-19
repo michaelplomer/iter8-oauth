@@ -16,6 +16,9 @@ public final class AsPaths {
 
     public static final String CALLBACK_PATH = "/oauth2/callback";
 
+    /** Where the consent page posts the user's decision. */
+    public static final String CONSENT_PATH = "/oauth2/consent";
+
     /** RFC 8414 authorization server metadata. */
     public static final String METADATA_PATH = "/.well-known/oauth-authorization-server";
 
