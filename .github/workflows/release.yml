@@ -46,7 +46,8 @@ jobs:
           IMAGE_CREATED="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
           export IMAGE_CREATED
           ./gradlew :as-app:jib -Pversion=${{ steps.version.outputs.version }} \
-              -Djib.to.tags="${{ steps.version.outputs.version }},latest"
+              -Djib.to.image="ghcr.io/michaelplomer/iter8-oauth:${{ steps.version.outputs.version }}" \
+              -Djib.to.tags="latest"
         env:
           REGISTRY_USERNAME: ${{ github.actor }}
           REGISTRY_PASSWORD: ${{ secrets.GITHUB_TOKEN }}

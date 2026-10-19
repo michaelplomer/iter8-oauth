@@ -64,7 +64,8 @@ jobs:
       - run: |
           IMAGE_CREATED="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
           export IMAGE_CREATED
-          ./gradlew :as-app:jib -Djib.to.tags="main,sha-${GITHUB_SHA::7}"
+          ./gradlew :as-app:jib -Djib.to.image="ghcr.io/michaelplomer/iter8-oauth:main" \
+              -Djib.to.tags="sha-${GITHUB_SHA::7}"
         env:
           REGISTRY_USERNAME: ${{ github.actor }}
           REGISTRY_PASSWORD: ${{ secrets.GITHUB_TOKEN }}

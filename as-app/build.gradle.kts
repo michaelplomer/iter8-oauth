@@ -10,8 +10,9 @@ dependencies {
     implementation(libs.spring.boot.starter.webflux)
 }
 
-// The container image, published to GitHub's container registry by CI. The tags are set by the workflow that
-// pushes it, and the registry credentials come from the environment rather than the command line.
+// The container image, published to GitHub's container registry by CI. The workflow that pushes it names the
+// image with its primary tag, since an image name without one means latest, which only releases may move.
+// The registry credentials come from the environment rather than the command line.
 jib {
     from {
         image = "eclipse-temurin:25-jre"
