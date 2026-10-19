@@ -37,6 +37,14 @@ Every push to `main` also publishes a snapshot of the next version, for example 
 `https://central.sonatype.com/repository/maven-snapshots/`. Snapshots are only for trying unreleased changes:
 add that repository to your build to use them, and expect them to disappear after a while.
 
+The server itself is published as a container image, `ghcr.io/michaelplomer/iter8-oauth`, for `linux/amd64` and
+`linux/arm64`. Releases are tagged with their version and `latest`; every push to `main` is tagged `main` and
+`sha-<commit>`. Configuration comes from environment variables, for example:
+
+```bash
+docker run -p 8080:8080 -e ITER8_OAUTH_ISSUER=https://auth.example.com ghcr.io/michaelplomer/iter8-oauth:latest
+```
+
 ## The two token models
 
 A provider declares its `TokenModel`, which picks the codec — **fail-closed**, so a secret-carrying provider

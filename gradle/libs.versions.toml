@@ -4,6 +4,8 @@ springBoot = "4.1.1"
 springDependencyMgmt = "1.1.7"
 # Publishes the libraries to Maven Central through the Central Portal, signed.
 vanniktechPublish = "0.37.0"
+# Builds the authorization server's container image without a Docker daemon.
+jib = "3.5.4"
 # Not managed by the Boot 4.1 BOM (comes transitively via Spring Security); pinned explicitly.
 nimbus = "10.9.1"
 
@@ -17,3 +19,6 @@ vanniktech-publish-gradlePlugin = { module = "com.vanniktech:gradle-maven-publis
 spring-boot-starter-webflux = { module = "org.springframework.boot:spring-boot-starter-webflux" }
 spring-boot-starter-oauth2-resource-server = { module = "org.springframework.boot:spring-boot-starter-oauth2-resource-server" }
 nimbus-jose-jwt = { module = "com.nimbusds:nimbus-jose-jwt", version.ref = "nimbus" }
+
+[plugins]
+jib = { id = "com.google.cloud.tools.jib", version.ref = "jib" }
