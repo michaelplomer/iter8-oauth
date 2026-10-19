@@ -8,12 +8,14 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 
+import io.netty.util.NetUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.io.buffer.DataBufferLimitException;
 import org.springframework.http.MediaType;
+import org.springframework.http.client.reactive.ReactorClientHttpConnector;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
-import reactor.core.scheduler.Schedulers;
+import reactor.netty.http.client.HttpClient;
 import tools.jackson.databind.json.JsonMapper;
 
 /**
@@ -34,12 +36,12 @@ import tools.jackson.databind.json.JsonMapper;
  * <li>the response is size limited, so a client id pointing at an endless stream cannot exhaust memory
  * </ul>
  *
- * <p>One residual weakness is worth naming: the host is resolved for the check and then resolved again by
- * the HTTP client when it connects, so a name that changes its answer between the two could slip past. Fully
- * closing that means pinning the connection to the address that was checked. What gets through is narrow.
- * The https requirement means the connection fails at the TLS handshake, since no internal service holds a
- * certificate for the caller's host name, so no request is sent. And transport failures are reported to the
- * caller only generically, so the attempt does not tell them whether an internal address or port exists.
+ * <p>The address check happens in the HTTP client's own name resolution (see
+ * {@link CheckedAddressResolverGroup}), so the client connects to exactly the addresses that were checked and
+ * a host cannot pass the check with one DNS answer and be connected to with another. A host written as an IP
+ * address is never looked up, so it is checked directly before connecting. Transport failures are reported
+ * to the caller only generically, so a failed fetch does not tell them whether an internal address or port
+ * exists.
  */
 @Slf4j
 public class ClientIdMetadataResolver {
@@ -71,7 +73,21 @@ public class ClientIdMetadataResolver {
      */
     public ClientIdMetadataResolver(WebClient.Builder webClientBuilder, Duration cacheTtl,
             boolean allowLoopback) {
+        this(webClientBuilder, cacheTtl, allowLoopback, InetAddress::getAllByName);
+    }
+
+    /**
+     * @param webClientBuilder used to build a dedicated client with a small buffer and no redirect following
+     * @param cacheTtl how long a successfully fetched document is reused
+     * @param allowLoopback whether to permit loopback client identifiers
+     * @param lookup how host names are looked up, replaceable in tests
+     */
+    ClientIdMetadataResolver(WebClient.Builder webClientBuilder, Duration cacheTtl, boolean allowLoopback,
+            CheckedAddressResolverGroup.HostLookup lookup) {
+        HttpClient httpClient = HttpClient.create()
+                .resolver(new CheckedAddressResolverGroup(lookup, allowLoopback));
         this.webClient = webClientBuilder.clone()
+                .clientConnector(new ReactorClientHttpConnector(httpClient))
                 .codecs(configurer -> configurer.defaultCodecs().maxInMemorySize(MAX_DOCUMENT_BYTES))
                 .build();
         this.cacheTtl = cacheTtl;
@@ -98,7 +114,7 @@ public class ClientIdMetadataResolver {
         if (cached != null) {
             return Mono.just(cached);
         }
-        return assertNotSpecialUse(clientId, "client_id")
+        return checkLiteralAddress(clientId, "client metadata document")
                 .then(fetch(clientId, "client metadata document"))
                 .map(document -> validate(clientId, document))
                 .doOnNext(metadata -> this.cache.put(clientId, metadata, Instant.now().plus(this.cacheTtl)));
@@ -119,7 +135,7 @@ public class ClientIdMetadataResolver {
         if (error != null) {
             return Mono.error(new ClientIdMetadataException("The " + what + " is unusable: " + error));
         }
-        return assertNotSpecialUse(url, what).then(fetch(url, what));
+        return checkLiteralAddress(url, what).then(fetch(url, what));
     }
 
     /**
@@ -131,28 +147,30 @@ public class ClientIdMetadataResolver {
         this.cache.remove(clientId);
     }
 
-    private Mono<Void> assertNotSpecialUse(String url, String what) {
+    /**
+     * Checks a host written as an IP address. The HTTP client treats such an address as already resolved and
+     * connects without consulting the resolver, so it is checked here instead. Unlike a name, it cannot give
+     * a different answer when the client connects.
+     */
+    private Mono<Void> checkLiteralAddress(String url, String what) {
         String host = URI.create(url).getHost();
-        return Mono.fromCallable(() -> InetAddress.getAllByName(host))
-                // Name resolution blocks, and this runs on an event loop thread.
-                .subscribeOn(Schedulers.boundedElastic())
-                .onErrorMap(UnknownHostException.class, failure -> new ClientIdMetadataException(
-                        "The " + what + " host '" + host + "' does not resolve."))
-                .flatMap(addresses -> {
-                    for (InetAddress address : addresses) {
-                        if (this.allowLoopback && address.isLoopbackAddress()) {
-                            continue;
-                        }
-                        if (SpecialUseAddresses.isSpecialUse(address)) {
-                            log.warn("Refused a {} whose host {} resolves to the special-use "
-                                    + "address {}.", what, host, address.getHostAddress());
-                            return Mono.error(new ClientIdMetadataException(
-                                    "The " + what + " host resolves to an address this server will not "
-                                            + "fetch from."));
-                        }
-                    }
-                    return Mono.empty();
-                });
+        String literal = (host.startsWith("[") && host.endsWith("]")) ? host.substring(1, host.length() - 1)
+                : host;
+        byte[] bytes = NetUtil.createByteArrayFromIpAddressString(literal);
+        if (bytes == null) {
+            return Mono.empty();
+        }
+        try {
+            InetAddress address = InetAddress.getByAddress(bytes);
+            if (CheckedAddressResolverGroup.isAllowed(address, this.allowLoopback)) {
+                return Mono.empty();
+            }
+            log.warn("Refused to fetch the {} at {}, a special-use address.", what, url);
+        }
+        catch (UnknownHostException impossible) {
+            // Four or sixteen bytes always make an address.
+        }
+        return Mono.error(new ClientIdMetadataException("Could not fetch the " + what + "."));
     }
 
     private Mono<String> fetch(String url, String what) {

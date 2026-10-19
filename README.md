@@ -92,7 +92,9 @@ revokes every token descended from the same authorization, so a copied token end
 copy and the original. Refreshing an identity token applies the domain and email allowlist again.
 
 **Client metadata** is only fetched over https, never from private or other special-use addresses (including
-IPv6 forms that carry such an address), without following redirects, and with a 5 KB size limit.
+IPv6 forms that carry such an address), without following redirects, and with a 5 KB size limit. The address
+is checked in the HTTP client's own name resolution, so the client connects to exactly the address that was
+checked, and a host whose DNS answer changes cannot slip an internal address past the check.
 
 **Limits** to be aware of:
 
@@ -103,10 +105,6 @@ IPv6 forms that carry such an address), without following redirects, and with a 
   behind a proxy or load balancer that limits requests per client.
 - A client's `private_key_jwt` assertion is not tracked after use, so a captured assertion stays usable for the
   rest of its lifetime, at most five minutes.
-- The metadata fetch resolves the client's host once to check the address and again to connect, so a host
-  whose DNS answer changes in between could reach an address the check refused (DNS rebinding). Such a
-  connection fails at the TLS handshake, so no request is sent, and the failure is reported to the client only
-  generically.
 
 ## Build & test
 
