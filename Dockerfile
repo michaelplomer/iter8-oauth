@@ -1,4 +1,4 @@
-# Multi-stage build for the mcp-oauth authorization server (as-app). Gradle build (JDK 25) -> slim JRE.
+# Multi-stage build for the iter8-oauth authorization server (as-app). Gradle build (JDK 25) -> slim JRE.
 # The build stage uses the committed Gradle wrapper, so the Gradle version is pinned by the repo.
 #
 # Starting point: no dependency or build cache is wired, so each build re-downloads Gradle and
@@ -12,6 +12,7 @@ COPY gradlew settings.gradle.kts gradle.properties ./
 COPY gradle ./gradle
 COPY buildSrc ./buildSrc
 COPY cimd ./cimd
+COPY token ./token
 COPY oauth-core ./oauth-core
 COPY resource-server ./resource-server
 COPY as-app ./as-app
@@ -24,7 +25,7 @@ WORKDIR /app
 # Only the executable bootJar exists in as-app/build/libs (the plain jar is disabled by convention).
 COPY --from=build /workspace/as-app/build/libs/*.jar /app/app.jar
 
-# Cloud Run sends traffic to 8080 (matches container_port in terraform).
+# Cloud Run and most container platforms send traffic to 8080.
 EXPOSE 8080
 ENV JAVA_OPTS="-XX:MaxRAMPercentage=75 -XX:+UseSerialGC"
 ENTRYPOINT ["sh", "-c", "exec java $JAVA_OPTS -jar /app/app.jar"]

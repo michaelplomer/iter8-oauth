@@ -5,7 +5,7 @@ import org.springframework.boot.gradle.tasks.bundling.BootJar
  * bootJar enabled and the plain jar disabled.
  */
 plugins {
-    id("mcpoauth.java-library-conventions")
+    id("buildlogic.java-library-conventions")
 }
 
 tasks.named<BootJar>("bootJar") { enabled = true }

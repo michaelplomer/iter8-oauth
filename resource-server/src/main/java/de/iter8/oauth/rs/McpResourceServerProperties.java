@@ -6,7 +6,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.context.properties.bind.DefaultValue;
 
 /**
- * Inbound authorization for an MCP server that trusts the mcp-oauth authorization server. The MCP endpoint
+ * Inbound authorization for an MCP server that trusts the iter8-oauth authorization server. The MCP endpoint
  * is an OAuth 2.0 protected resource; clients present access tokens the AS issued.
  *
  * <p>Disabled by default, so a local stdio/loopback run needs no tokens. Turn it on for anything reachable

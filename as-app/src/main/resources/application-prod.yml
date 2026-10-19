@@ -1,8 +1,8 @@
 # Production profile (SPRING_PROFILES_ACTIVE=prod), used by the Cloud Run deployment.
 #
 # The non-secret wiring lives here in the image; secrets and the issuer come from the environment,
-# which Cloud Run fills from Secret Manager and plain config (see terraform/cloud_run.tf). Every
-# ${VAR} below is supplied there — nothing secret is committed.
+# which Cloud Run fills from Secret Manager and plain config. Every ${VAR} below is supplied there —
+# nothing secret is committed.
 
 iter8:
   oauth:
@@ -55,4 +55,4 @@ iter8:
 
 logging:
   level:
-    info.plomer.iter8.oauth: INFO
+    de.iter8.oauth: INFO

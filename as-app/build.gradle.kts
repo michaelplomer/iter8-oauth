@@ -1,5 +1,5 @@
 plugins {
-    id("mcpoauth.spring-boot-app-conventions")
+    id("buildlogic.spring-boot-app-conventions")
 }
 
 // The deployable authorization server: wires the oauth-core engine and both providers from declarative

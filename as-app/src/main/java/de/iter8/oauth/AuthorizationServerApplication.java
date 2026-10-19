@@ -11,9 +11,9 @@ import org.springframework.boot.context.properties.ConfigurationPropertiesScan;
  */
 @SpringBootApplication
 @ConfigurationPropertiesScan
-public class McpOAuthApplication {
+public class AuthorizationServerApplication {
 
     public static void main(String[] args) {
-        SpringApplication.run(McpOAuthApplication.class, args);
+        SpringApplication.run(AuthorizationServerApplication.class, args);
     }
 }

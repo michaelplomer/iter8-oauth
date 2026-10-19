@@ -1,7 +1,6 @@
 plugins {
-    id("mcpoauth.java-library-conventions")
+    id("buildlogic.java-library-conventions")
     `maven-publish`
-    id("com.google.cloud.artifactregistry.gradle-plugin")
 }
 
 publishing {
@@ -14,20 +13,11 @@ publishing {
             }
         }
     }
-    repositories {
-        // The central shared Maven repo in the platform project (created by plomer.info-gcp-org). Publishing
-        // needs a writer on it (the CI build SA / a developer's ADC); `publishToMavenLocal` still works for
-        // local dev. See gradle/README or the org repo for the reader/writer wiring.
-        maven {
-            name = "artifactRegistry"
-            url = uri("artifactregistry://us-west1-maven.pkg.dev/plomer-platform/maven")
-        }
-    }
 }
 
-// The authorization-server engine: PKCE, code/pending stores, the token layer (JWE-carry-secret and
-// JWS-identity codecs), and the UpstreamProvider / IssuedTokenCodec SPIs. Provider-neutral; concrete
-// providers and the deployable app live elsewhere.
+// The authorization server engine: PKCE, the code and pending-authorization stores, the endpoints, and the
+// UpstreamProvider SPI with its brokered and OIDC providers. Token formats and codecs live in the token
+// module, and the deployable app in as-app.
 dependencies {
     api(project(":cimd"))                            // client onboarding types leak into the SPI/endpoints
     api(project(":token"))                           // token model and codecs appear in the SPI

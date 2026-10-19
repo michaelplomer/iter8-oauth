@@ -1,4 +1,4 @@
-# mcp-oauth
+# iter8-oauth
 
 A standalone MCP **authorization server** with pluggable upstream providers, plus the libraries an MCP
 resource server uses to validate its tokens. Extracted and generalized from oura-mcp's embedded AS.
@@ -38,7 +38,7 @@ can never emit a readable token:
 ## Adding a provider is configuration
 
 ```yaml
-mcp:
+iter8:
   oauth:
     issuer: https://oauth.plomer.info
     keys: { jws-private-key: ..., jws-public-key: ... }   # generated per-run if absent (dev)
@@ -56,19 +56,20 @@ mcp:
         allowed-emails: [friend@gmail.com]      # individual external accounts
         scopes-supported: [whatable.read, whatable.write]
     resources:
-      https://whatable.mcp.plomer.info/mcp: google-oidc
+      # URL keys contain dots, so they must be bracket-quoted or Spring binds the map empty.
+      "[https://whatable.mcp.plomer.info/mcp]": google-oidc
     default-provider: google-oidc
 ```
 
 ## A resource server consumes it
 
 ```yaml
-mcp:
+iter8:
   resource-server:
     enabled: true
     resource: https://whatable.mcp.plomer.info/mcp
     authorization-servers: [https://oauth.plomer.info]
-    token-validation: jws            # or jwe (then set access-token-private-key)
+    token-validation: jws            # or jwe (then set encryption-keys)
     required-scopes: [whatable.read]
 ```
 
@@ -77,21 +78,27 @@ mcp:
 ```bash
 ./gradlew build
 ```
-13 tests: token-codec round-trips + fail-closed selection, the Google domain/allowlist gate (`oauth-core`),
-and a full context boot serving metadata/JWKS/authorize (`as-app`).
+In `oauth-core`, the tests cover token-codec round-trips and fail-closed codec selection, resource encryption
+keys, and the Google domain and allowlist gate. In `as-app`, they cover resource map binding, the brokered
+authorization flow, and a full context boot serving metadata, JWKS and authorize.
 
-## Status
+## Generating keys
 
-Slice 1 (this repo) is complete and builds green. Next: adopt `resource-server` in whatable (identity/JWS,
-using the Google email as the user id) and in oura-mcp (broker/JWE); then promote `as-app` to a deployed
-service with its Terraform.
+A production deployment needs three persistent keys, supplied through the environment variables that
+`application-prod.yml` reads. Without them, keys are generated per run, and every restart invalidates
+outstanding tokens. Store the output in your secret manager rather than in files.
 
-# Token generation
-Refresh sealing token
-```shell
-openssl rand -base64 32 | tr -d '\n' | gcloud secrets versions add iter8-oauth-refresh-token-key --project=plomer-platform --data-file=-
+`ITER8_OAUTH_REFRESH_TOKEN_KEY`, the key that seals refresh tokens:
+
+```bash
+openssl rand -base64 32 | tr -d '\n'
 ```
 
-```shell
-set -e; openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out jws.pem && openssl pkey -in jws.pem -outform DER | base64 | gcloud secrets versions add iter8-oauth-jws-private-key --project=plomer-platform --data-file=- && openssl pkey -in jws.pem -pubout -outform DER | base64 | gcloud secrets versions add iter8-oauth-jws-public-key --project=plomer-platform --data-file=- && rm jws.pem
+`ITER8_OAUTH_JWS_PRIVATE_KEY` and `ITER8_OAUTH_JWS_PUBLIC_KEY`, the key pair that signs identity tokens:
+
+```bash
+openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out jws.pem
+openssl pkey -in jws.pem -outform DER | base64 | tr -d '\n'           # private key
+openssl pkey -in jws.pem -pubout -outform DER | base64 | tr -d '\n'   # public key
+rm jws.pem
 ```

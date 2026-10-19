@@ -1,6 +1,6 @@
 spring:
   application:
-    name: mcp-oauth
+    name: iter8-oauth
 
 server:
   # Cloud Run injects PORT; default 8080 locally.
@@ -40,4 +40,4 @@ iter8:
 
 logging:
   level:
-    info.plomer.iter8.oauth: INFO
+    de.iter8.oauth: INFO
