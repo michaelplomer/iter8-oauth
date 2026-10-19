@@ -36,9 +36,10 @@ import tools.jackson.databind.json.JsonMapper;
  *
  * <p>One residual weakness is worth naming: the host is resolved for the check and then resolved again by
  * the HTTP client when it connects, so a name that changes its answer between the two could slip past. Fully
- * closing that means pinning the connection to the address that was checked. The size limit, the redirect
- * ban and the https requirement all still apply, so the exposure is a single request to an internal address
- * whose response this server never returns to the caller.
+ * closing that means pinning the connection to the address that was checked. What gets through is narrow.
+ * The https requirement means the connection fails at the TLS handshake, since no internal service holds a
+ * certificate for the caller's host name, so no request is sent. And transport failures are reported to the
+ * caller only generically, so the attempt does not tell them whether an internal address or port exists.
  */
 @Slf4j
 public class ClientIdMetadataResolver {
@@ -173,9 +174,13 @@ public class ClientIdMetadataResolver {
                 .onErrorMap(ClientIdMetadataResolver::isTooLarge, failure -> new ClientIdMetadataException(
                         "The " + what + " is larger than the " + MAX_DOCUMENT_BYTES
                                 + " bytes this server will read."))
-                .onErrorMap(failure -> !(failure instanceof ClientIdMetadataException),
-                        failure -> new ClientIdMetadataException(
-                                "Could not fetch the " + what + ": " + failure.getMessage(), failure));
+                // Transport failures are logged in full but reported generically. Their messages name the
+                // address that was dialled and why it failed (refused, timed out, certificate rejected), which
+                // would let a caller map which internal addresses and ports exist.
+                .onErrorMap(failure -> !(failure instanceof ClientIdMetadataException), failure -> {
+                    log.warn("Could not fetch the {} at {}: {}", what, url, failure.toString());
+                    return new ClientIdMetadataException("Could not fetch the " + what + ".", failure);
+                });
     }
 
     private static boolean isTooLarge(Throwable failure) {
