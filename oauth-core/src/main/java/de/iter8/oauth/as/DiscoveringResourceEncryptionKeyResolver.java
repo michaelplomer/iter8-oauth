@@ -32,7 +32,13 @@ public final class DiscoveringResourceEncryptionKeyResolver implements ResourceE
     /** How long a token request, or startup, waits for a key that is not cached yet. */
     static final Duration DISCOVERY_TIMEOUT = Duration.ofSeconds(10);
 
+    /** How long a fetch may take before it is abandoned, so that one that stalls cannot stay in flight. */
+    static final Duration FETCH_TIMEOUT = Duration.ofSeconds(30);
+
     private record Cached(JWK jwk, Instant refreshAt) {
+    }
+
+    private record Fetch(Mono<JWK> key, Instant startedAt) {
     }
 
     private final Set<String> knownResources;
@@ -47,7 +53,7 @@ public final class DiscoveringResourceEncryptionKeyResolver implements ResourceE
 
     private final ConcurrentHashMap<String, Cached> cache = new ConcurrentHashMap<>();
 
-    private final ConcurrentHashMap<String, Mono<JWK>> inFlight = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, Fetch> inFlight = new ConcurrentHashMap<>();
 
     DiscoveringResourceEncryptionKeyResolver(Set<String> knownResources, Duration cacheTtl, Clock clock,
             Function<String, Mono<JWK>> fetcher) {
@@ -137,27 +143,36 @@ public final class DiscoveringResourceEncryptionKeyResolver implements ResourceE
     }
 
     /**
-     * Starts fetching the resource's key unless a fetch is already running, and returns that fetch. It runs to
-     * the end even when every caller stops waiting for it, so a slow resource is still cached for the next
-     * request.
+     * Starts fetching the resource's key unless a recent fetch is already running, and returns that fetch. It
+     * runs to the end even when every caller stops waiting for it, so a slow resource is still cached for the
+     * next request.
+     *
+     * <p>A fetch older than the discovery timeout is not joined but replaced. On a platform that throttles an
+     * idle instance's CPU, such as Cloud Run, a fetch started with no request in progress can stall, and
+     * joining it would make the request wait for nothing.
      */
     private Mono<JWK> refresh(String resource) {
-        Mono<JWK> running = this.inFlight.get(resource);
-        if (running != null) {
-            return running;
+        Instant now = this.clock.instant();
+        Fetch running = this.inFlight.get(resource);
+        if (running != null && now.isBefore(running.startedAt().plus(this.discoveryTimeout))) {
+            return running.key();
         }
-        Mono<JWK> fetch = this.fetcher.apply(resource)
+        Mono<JWK> key = this.fetcher.apply(resource)
+                .timeout(FETCH_TIMEOUT)
                 .doOnNext(jwk -> this.cache.put(resource,
                         new Cached(jwk, this.clock.instant().plus(this.cacheTtl))))
                 .cache();
-        running = this.inFlight.putIfAbsent(resource, fetch);
-        if (running != null) {
-            return running;
+        Fetch started = new Fetch(key, now);
+        // Replaces the old fetch seen above, or none, but joins one another caller has started meanwhile.
+        Fetch current = this.inFlight.compute(resource,
+                (ignored, existing) -> (existing == null || existing == running) ? started : existing);
+        if (current != started) {
+            return current.key();
         }
-        fetch.doFinally(signal -> this.inFlight.remove(resource, fetch))
+        key.doFinally(signal -> this.inFlight.remove(resource, started))
                 .subscribe(jwk -> {
                 }, error -> log.warn("Could not discover an encryption key for resource {}: {}", resource,
                         error.getMessage()));
-        return fetch;
+        return key;
     }
 }

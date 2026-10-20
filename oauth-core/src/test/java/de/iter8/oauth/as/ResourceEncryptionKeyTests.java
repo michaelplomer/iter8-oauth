@@ -165,6 +165,25 @@ class ResourceEncryptionKeyTests {
     }
 
     @Test
+    void a_stalled_fetch_is_replaced_rather_than_joined() {
+        JWK published = publishedKey();
+        String resource = "https://oura.test/mcp";
+        AtomicInteger fetches = new AtomicInteger();
+        DiscoveringResourceEncryptionKeyResolver resolver = new DiscoveringResourceEncryptionKeyResolver(
+                Set.of(resource), Duration.ofMinutes(15), Clock.systemUTC(),
+                r -> (fetches.incrementAndGet() == 1) ? Mono.never() : Mono.just(published),
+                Duration.ofMillis(100));
+
+        // The first fetch never answers, as one started while the instance had no CPU might not.
+        StepVerifier.create(resolver.awaitKey(resource)).verifyComplete();
+
+        // Once it is older than the wait, the next request starts a fresh fetch instead of joining it.
+        StepVerifier.create(resolver.awaitKey(resource)).verifyComplete();
+        assertThat(resolver.encryptionKeyFor(resource)).contains(published);
+        assertThat(fetches).hasValue(2);
+    }
+
+    @Test
     void nothing_is_waited_for_on_an_unknown_resource() {
         AtomicInteger fetches = new AtomicInteger();
         DiscoveringResourceEncryptionKeyResolver resolver = new DiscoveringResourceEncryptionKeyResolver(
