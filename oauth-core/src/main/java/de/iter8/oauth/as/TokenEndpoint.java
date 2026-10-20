@@ -33,6 +33,9 @@ import de.iter8.oauth.token.TokenModel;
  * The token endpoint, where an authorization code becomes an access token and a refresh token becomes a
  * fresh pair.
  *
+ * <p>Every answer is a token response or an RFC 6749 error response, even when something fails unexpectedly,
+ * because clients read the {@code error} field and some refuse a response without a standard one.
+ *
  * <p>No client holds a secret, because no registration takes place for one to have been agreed during. A
  * client is either public (PKCE alone ties the request to the one that began the flow) or authenticates with
  * private_key_jwt against keys its own metadata document publishes. Neither issued token is kept: each
@@ -76,6 +79,10 @@ public class TokenEndpoint {
             }
             return Mono.just(error(HttpStatus.BAD_REQUEST, "unsupported_grant_type",
                     "Supported grants are authorization_code and refresh_token."));
+        }).onErrorResume(failure -> {
+            log.error("A token request failed unexpectedly.", failure);
+            return Mono.just(error(HttpStatus.INTERNAL_SERVER_ERROR, "server_error",
+                    "The server could not issue tokens. Try authorizing again."));
         });
     }
 
@@ -110,10 +117,10 @@ public class TokenEndpoint {
                     "The provider for this authorization is no longer available."));
         }
         return authenticate(issued.clientId(), issued.tokenEndpointAuthMethod(), form, exchange)
-                .then(Mono.fromSupplier(() -> {
+                .then(Mono.defer(() -> {
                     log.info("Issuing tokens to '{}'.", issued.clientId());
-                    return issue(provider, RefreshTokenCodec.newFamilyId(), issued.clientId(), issued.scope(),
-                            issued.resource(), issued.upstreamResult());
+                    return issueWhenReady(provider, RefreshTokenCodec.newFamilyId(), issued.clientId(),
+                            issued.scope(), issued.resource(), issued.upstreamResult());
                 }))
                 .onErrorResume(ClientAssertionException.class, failure -> {
                     log.warn("Refused a token request for '{}': {}", issued.clientId(),
@@ -149,11 +156,13 @@ public class TokenEndpoint {
                 .then(Mono.fromCallable(() -> this.refreshLedger.spend(refreshToken.tokenId(),
                         refreshToken.familyId(), presented.expiresAt())))
                 .flatMap(outcome -> switch (outcome) {
-                    case FIRST_USE -> provider.refresh(prior).map(result -> {
-                        log.info("Refreshed tokens for '{}'.", presented.clientId());
-                        return issue(provider, refreshToken.familyId(), presented.clientId(),
-                                presented.scope(), presented.resource(), result);
-                    });
+                    case FIRST_USE -> provider.refresh(prior)
+                            .onErrorMap(RefreshRefused::new)
+                            .flatMap(result -> {
+                                log.info("Refreshed tokens for '{}'.", presented.clientId());
+                                return issueWhenReady(provider, refreshToken.familyId(), presented.clientId(),
+                                        presented.scope(), presented.resource(), result);
+                            });
                     case REUSED -> {
                         log.warn("A refresh token issued to '{}' was presented a second time, so it was "
                                 + "copied. Revoked every token in its family.", presented.clientId());
@@ -173,9 +182,9 @@ public class TokenEndpoint {
                     return Mono.just(error(HttpStatus.SERVICE_UNAVAILABLE, "temporarily_unavailable",
                             "This server cannot record more refreshes right now. Try again shortly."));
                 })
-                .onErrorResume(failure -> {
+                .onErrorResume(RefreshRefused.class, refused -> {
                     log.warn("Provider '{}' would not refresh for '{}': {}", provider.id(),
-                            presented.clientId(), failure.getMessage());
+                            presented.clientId(), refused.getCause().getMessage());
                     return Mono.just(error(HttpStatus.BAD_REQUEST, "invalid_grant",
                             "The provider would not renew this authorization; the user must authorize "
                                     + "again."));
@@ -228,6 +237,13 @@ public class TokenEndpoint {
         return Set.of(this.uris.issuer(), this.uris.absolute(AsPaths.TOKEN_PATH));
     }
 
+    /** Issues once the token can be sealed, which may first mean discovering the resource's key. */
+    private Mono<ResponseEntity<Map<String, Object>>> issueWhenReady(UpstreamProvider provider, String familyId,
+            String clientId, String scope, String resource, UpstreamResult result) {
+        return this.codecs.readyToIssue(provider.tokenModel(), resource)
+                .then(Mono.fromSupplier(() -> issue(provider, familyId, clientId, scope, resource, result)));
+    }
+
     private ResponseEntity<Map<String, Object>> issue(UpstreamProvider provider, String familyId,
             String clientId, String scope, String resource, UpstreamResult result) {
         IssuedTokenCodec codec = this.codecs.forModel(provider.tokenModel());
@@ -274,5 +290,13 @@ public class TokenEndpoint {
         return ResponseEntity.status(status)
                 .header(HttpHeaders.CACHE_CONTROL, "no-store")
                 .header(HttpHeaders.PRAGMA, "no-cache");
+    }
+
+    /** The provider refused to refresh, as opposed to anything failing after it answered. */
+    private static final class RefreshRefused extends RuntimeException {
+
+        RefreshRefused(Throwable cause) {
+            super(cause);
+        }
     }
 }

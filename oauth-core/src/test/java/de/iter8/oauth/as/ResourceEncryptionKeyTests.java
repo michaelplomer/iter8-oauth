@@ -9,11 +9,14 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import com.nimbusds.jose.jwk.JWK;
 import com.nimbusds.jose.jwk.KeyUse;
 import org.junit.jupiter.api.Test;
 import reactor.core.publisher.Mono;
+import reactor.core.publisher.Sinks;
+import reactor.test.StepVerifier;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -29,7 +32,8 @@ import de.iter8.oauth.token.StaticResourceEncryptionKeyResolver;
 /**
  * The per-resource SEALED_CREDENTIAL key model: a token is sealed to a key a resource server publishes and
  * opened by that server via the {@code kid}; a token sealed to a key the server does not hold is refused; and
- * the discovering resolver only resolves resources it is configured for, then caches.
+ * the discovering resolver only resolves resources it is configured for, caches, and can be waited on for a
+ * resource it has no key for yet.
  */
 class ResourceEncryptionKeyTests {
 
@@ -105,5 +109,76 @@ class ResourceEncryptionKeyTests {
         // A known resource is fetched (synchronously here) and then served from cache.
         assertThat(resolver.encryptionKeyFor(resource)).contains(published);
         assertThat(resolver.encryptionKeyFor(resource)).contains(published);
+    }
+
+    @Test
+    void waiting_for_a_cold_resource_returns_once_its_key_is_cached() {
+        JWK published = publishedKey();
+        String resource = "https://oura.test/mcp";
+        AtomicInteger fetches = new AtomicInteger();
+        DiscoveringResourceEncryptionKeyResolver resolver = new DiscoveringResourceEncryptionKeyResolver(
+                Set.of(resource), Duration.ofMinutes(15), Clock.systemUTC(), r -> Mono.defer(() -> {
+                    fetches.incrementAndGet();
+                    return Mono.just(published).delayElement(Duration.ofMillis(100));
+                }));
+
+        // Two requests waiting at once share one fetch.
+        StepVerifier.create(Mono.when(resolver.awaitKey(resource), resolver.awaitKey(resource)))
+                .verifyComplete();
+
+        assertThat(fetches).hasValue(1);
+        assertThat(resolver.encryptionKeyFor(resource)).contains(published);
+    }
+
+    @Test
+    void a_fetch_outlasting_the_wait_still_fills_the_cache() {
+        JWK published = publishedKey();
+        String resource = "https://oura.test/mcp";
+        Sinks.One<JWK> slowResource = Sinks.one();
+        DiscoveringResourceEncryptionKeyResolver resolver = new DiscoveringResourceEncryptionKeyResolver(
+                Set.of(resource), Duration.ofMinutes(15), Clock.systemUTC(), r -> slowResource.asMono(),
+                Duration.ofMillis(100));
+
+        // The wait gives up without an error, and sealing then finds no key.
+        StepVerifier.create(resolver.awaitKey(resource)).verifyComplete();
+        assertThat(resolver.encryptionKeyFor(resource)).isEmpty();
+
+        // The fetch carried on, so the next request finds the key.
+        slowResource.tryEmitValue(published);
+        assertThat(resolver.encryptionKeyFor(resource)).contains(published);
+    }
+
+    @Test
+    void a_failed_fetch_ends_the_wait_and_is_tried_again_next_time() {
+        JWK published = publishedKey();
+        String resource = "https://oura.test/mcp";
+        AtomicInteger fetches = new AtomicInteger();
+        DiscoveringResourceEncryptionKeyResolver resolver = new DiscoveringResourceEncryptionKeyResolver(
+                Set.of(resource), Duration.ofMinutes(15), Clock.systemUTC(),
+                r -> (fetches.incrementAndGet() == 1)
+                        ? Mono.error(new IllegalStateException("not serving yet"))
+                        : Mono.just(published));
+
+        StepVerifier.create(resolver.awaitKey(resource)).verifyComplete();
+        assertThat(resolver.encryptionKeyFor(resource)).contains(published);
+        assertThat(fetches).hasValue(2);
+    }
+
+    @Test
+    void nothing_is_waited_for_on_an_unknown_resource() {
+        AtomicInteger fetches = new AtomicInteger();
+        DiscoveringResourceEncryptionKeyResolver resolver = new DiscoveringResourceEncryptionKeyResolver(
+                Set.of("https://oura.test/mcp"), Duration.ofMinutes(15), Clock.systemUTC(), r -> {
+                    fetches.incrementAndGet();
+                    return Mono.never();
+                });
+
+        StepVerifier.create(resolver.awaitKey("https://elsewhere.test/mcp")).verifyComplete();
+        assertThat(fetches).hasValue(0);
+    }
+
+    private static JWK publishedKey() {
+        RSAKeyPair rs = keyPair();
+        return EncryptionJwks.rsaEncryptionKey(rs.publicKey(), null, null).toPublicJWK();
     }
 }

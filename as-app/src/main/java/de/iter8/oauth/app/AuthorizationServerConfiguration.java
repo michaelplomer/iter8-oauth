@@ -31,7 +31,6 @@ import de.iter8.oauth.token.IssuedTokenCodec;
 import de.iter8.oauth.token.JweTokenCodec;
 import de.iter8.oauth.token.JwsTokenCodec;
 import de.iter8.oauth.token.RefreshTokenCodec;
-import de.iter8.oauth.token.ResourceEncryptionKeyResolver;
 import de.iter8.oauth.token.TokenKeys;
 import de.iter8.oauth.token.TokenModel;
 
@@ -111,7 +110,7 @@ class AuthorizationServerConfiguration {
 
     @Bean
     TokenCodecs tokenCodecs(AuthorizationServerProperties props, ProviderRegistry registry,
-            ResourceEncryptionKeyResolver sealingKeyResolver) {
+            DiscoveringResourceEncryptionKeyResolver sealingKeyResolver) {
         String issuer = issuer(props);
 
         JwsTokenCodec jws = null;
@@ -132,7 +131,7 @@ class AuthorizationServerConfiguration {
             jwe = new JweTokenCodec(sealingKeyResolver, null, issuer);
         }
 
-        return new TokenCodecs(jwe, jws);
+        return new TokenCodecs(jwe, jws, sealingKeyResolver);
     }
 
     /**
@@ -142,7 +141,7 @@ class AuthorizationServerConfiguration {
      * pre-warmed at startup (see {@link #warmResourceEncryptionKeys}).
      */
     @Bean
-    ResourceEncryptionKeyResolver sealingKeyResolver(AuthorizationServerProperties props,
+    DiscoveringResourceEncryptionKeyResolver sealingKeyResolver(AuthorizationServerProperties props,
             WebClient.Builder webClientBuilder) {
         if (props.resources().isEmpty()) {
             log.warn("No resources are mapped under iter8.oauth.resources, so no brokered credential can be "
@@ -153,18 +152,14 @@ class AuthorizationServerConfiguration {
     }
 
     /**
-     * Pre-warms the discovery cache at startup for the brokered (SEALED_CREDENTIAL) resources, so a cold
-     * instance's first seal finds the key already cached instead of the empty result the non-blocking
-     * resolver returns mid-request (issuance is synchronous and runs on a reactor thread, so it cannot wait
-     * on the fetch itself). Identity resources publish no encryption key, so they are skipped.
+     * Pre-warms the discovery cache at startup for the brokered (SEALED_CREDENTIAL) resources, so the first
+     * token request does not have to wait for discovery. Identity resources publish no encryption key, so
+     * they are skipped.
      */
     @Bean
     ApplicationRunner warmResourceEncryptionKeys(AuthorizationServerProperties props,
-            ProviderRegistry registry, ResourceEncryptionKeyResolver sealingKeyResolver) {
+            ProviderRegistry registry, DiscoveringResourceEncryptionKeyResolver sealingKeyResolver) {
         return args -> {
-            if (!(sealingKeyResolver instanceof DiscoveringResourceEncryptionKeyResolver discovering)) {
-                return;
-            }
             List<String> brokered = props.resources().entrySet().stream()
                     .filter(entry -> {
                         UpstreamProvider provider = registry.byId(entry.getValue());
@@ -173,7 +168,7 @@ class AuthorizationServerConfiguration {
                     .map(Map.Entry::getKey)
                     .toList();
             if (!brokered.isEmpty()) {
-                discovering.warm(brokered);
+                sealingKeyResolver.warm(brokered);
             }
         };
     }
