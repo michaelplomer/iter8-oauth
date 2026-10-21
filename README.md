@@ -25,12 +25,12 @@ its own registered app, and issues its own audience-bound tokens.
 | `resource-server` | library | What an MCP server consumes, depending only on `token`: protected-resource metadata, the bearer challenge, and a security chain validating AS tokens (JWS via JWKS, or JWE via the self-issued introspector). |
 | `as-app` | **bootJar** | The deployable authorization server, wired from declarative config. |
 
-`cimd`, `token`, `oauth-core`, and `resource-server` publish as artifacts (`de.iter8:*`); `as-app` deploys.
+`cimd`, `token`, `oauth-core`, and `resource-server` publish as artifacts (`de.iter8.oauth:*`); `as-app` deploys.
 
 Releases are on Maven Central. An MCP server that validates tokens only needs `resource-server`:
 
 ```kotlin
-implementation("de.iter8:resource-server:0.1.0")
+implementation("de.iter8.oauth:resource-server:0.1.0")
 ```
 
 Every push to `main` also publishes a snapshot of the next version, for example `0.2.0-SNAPSHOT`, to

@@ -12,7 +12,7 @@ plugins {
 }
 
 // The version lives in gradle.properties, so a release build can override it with -Pversion.
-group = "de.iter8"
+group = "de.iter8.oauth"
 
 // Library default: a plain jar, not a runnable bootJar. Clear the "plain" classifier the Spring Boot
 // plugin adds, so the library publishes as the main artifact (no classifier) that consumers resolve.
