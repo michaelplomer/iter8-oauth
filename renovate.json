@@ -1,0 +1,18 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended"],
+  "enabledManagers": ["gradle", "gradle-wrapper", "github-actions"],
+  "packageRules": [
+    {
+      "description": "Minor and patch updates of the libraries and Gradle plugins in the version catalog arrive as one pull request, since CI tests them together anyway.",
+      "matchManagers": ["gradle"],
+      "matchUpdateTypes": ["minor", "patch"],
+      "groupName": "Gradle dependencies"
+    },
+    {
+      "description": "Updates of the pinned GitHub Actions arrive as one pull request.",
+      "matchManagers": ["github-actions"],
+      "groupName": "GitHub Actions"
+    }
+  ]
+}
