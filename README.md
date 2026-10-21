@@ -33,7 +33,7 @@ Releases are on Maven Central. An MCP server that validates tokens only needs `r
 implementation("de.iter8:resource-server:0.1.0")
 ```
 
-Every push to `main` also publishes a snapshot of the next version, for example `0.1.0-SNAPSHOT`, to
+Every push to `main` also publishes a snapshot of the next version, for example `0.2.0-SNAPSHOT`, to
 `https://central.sonatype.com/repository/maven-snapshots/`. Snapshots are only for trying unreleased changes:
 add that repository to your build to use them, and expect them to disappear after a while.
 
