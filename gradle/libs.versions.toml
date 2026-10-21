@@ -7,7 +7,7 @@ vanniktechPublish = "0.37.0"
 # Builds the authorization server's container image without a Docker daemon.
 jib = "3.5.4"
 # Not managed by the Boot 4.1 BOM (comes transitively via Spring Security); pinned explicitly.
-nimbus = "10.9.1"
+nimbus = "10.10"
 
 [libraries]
 # Gradle plugin artifacts consumed by buildSrc convention plugins.
