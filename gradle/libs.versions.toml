@@ -1,6 +1,6 @@
 [versions]
 # Spring Boot 4 line, Java 25, Gradle 9.x.
-springBoot = "4.1.1"
+springBoot = "4.1.2"
 springDependencyMgmt = "1.1.7"
 # Publishes the libraries to Maven Central through the Central Portal, signed.
 vanniktechPublish = "0.37.0"
